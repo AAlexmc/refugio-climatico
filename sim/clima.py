@@ -64,6 +64,7 @@ class FuenteClimaSim:
         self.claraboya = 0.0
         self.ac = False
         self.nebulizador = False
+        self.ventilador = False
         self.aforo = 0
         self.bateria = 60.0     # %
 
@@ -80,6 +81,8 @@ class FuenteClimaSim:
                 self.ac = bool(v)
             elif d == "nebulizador":
                 self.nebulizador = bool(v)
+            elif d == "ventilador":
+                self.ventilador = bool(v)
 
     def paso(self, dt: float) -> dict:
         """Avanza `dt` s simulados en subpasos de ≤ 30 s (Euler explícito estable)."""
@@ -94,6 +97,8 @@ class FuenteClimaSim:
         ua = UA_CUPULA + VENT_MAX * self.claraboya
         q = ua * (te - self.temp) + G_SOLAR * AREA_SOL * sol + W_PERSONA * self.aforo
         p_elec = 150.0  # control + iluminación + bombas de riego
+        if self.ventilador:
+            p_elec += 40.0   # mueve aire: no baja la temperatura del aire, sí la sensación (no modelada)
         if self.ac:
             q -= AC_FRIO_W
             p_elec += AC_FRIO_W / AC_COP
@@ -118,7 +123,7 @@ class FuenteClimaSim:
         self.t_s += dt
         return {"temp": round(self.temp, 2), "temp_ext": round(te, 2), "humedad": round(self.hr, 1),
                 "humedad_ext": round(hre, 1), "radiacion": round(sol), "claraboya": self.claraboya,
-                "ac": self.ac, "nebulizador": self.nebulizador, "potencia": round(p_elec),
+                "ac": self.ac, "nebulizador": self.nebulizador, "ventilador": self.ventilador, "potencia": round(p_elec),
                 "solar": round(solar), "bateria": round(self.bateria, 1), "red": round(red)}
 
     async def correr(self, bus: Bus) -> None:

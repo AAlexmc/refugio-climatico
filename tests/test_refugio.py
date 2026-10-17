@@ -47,7 +47,7 @@ def test_lluvia_cierra_claraboya():
 
 def test_nebulizador_solo_con_gente_y_aire_seco():
     bus, _, vistos = montar(aforo_max=20)
-    medir(bus, temp_ext=35.0, temp=30.0, humedad=45.0, aforo=16)
+    medir(bus, temp_ext=35.0, temp=30.0, humedad=45.0, aforo=4)
     assert cmds(vistos, "nebulizador")[-1] is True
     medir(bus, humedad=70.0)
     assert cmds(vistos, "nebulizador")[-1] is False   # con HR alta empeora el índice de calor
@@ -109,3 +109,19 @@ def test_api_kits_sirve_catalogo():
         d = c.get("/api/kits").json()
     assert {k["id"] for k in d["kits"]} == {"parada_bus", "terraza_comunitaria", "terraza_privada"}
     assert d["material_por_defecto"] in {m["id"] for m in d["materiales_cubierta"]}
+
+
+def test_cuatro_personas_activan_refuerzo_termico():
+    bus, _, vistos = montar()
+    medir(bus, temp_ext=22.0, temp=26.5, humedad=50.0, aforo=3)   # fresco fuera: solo ventilar
+    assert cmds(vistos, "ac")[-1] is False and cmds(vistos, "ventilador")[-1] is False
+    medir(bus, aforo=4)
+    assert cmds(vistos, "ventilador")[-1] is True
+    assert cmds(vistos, "ac")[-1] is True                          # IC 26.5 > 25 con afluencia
+    assert cmds(vistos, "nebulizador")[-1] is True                 # HR 50 % < 60 %
+    assert cmds(vistos, "claraboya")[-1] == 1.0                    # sigue ventilando
+    al = [e.valor for e in vistos if e.tipo == "alerta" and e.valor["codigo"] == "afluencia"]
+    assert al[-1]["nivel"] == "aviso" and "4 personas" in al[-1]["mensaje"]
+    medir(bus, aforo=2)
+    assert cmds(vistos, "ventilador")[-1] is False and cmds(vistos, "nebulizador")[-1] is False
+    assert cmds(vistos, "ac")[-1] is False

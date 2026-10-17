@@ -52,6 +52,7 @@ function hud() {
   $('h_aforo').textContent = aforo ?? '—'; $('h_bat').textContent = f(E.bateria, '%', 0);
   $('h_sol').textContent = f(E.solar, 'W', 0); $('h_cla').textContent = Math.round(E.claraboya * 100) + ' %';
   $('h_ac').textContent = E.ac ? 'ON' : 'off'; $('h_neb').textContent = E.nebulizador ? 'ON' : 'off';
+  $('h_ven').textContent = E.ventilador ? 'ON' : 'off';
 }
 
 const BOOL = new Set(['ac', 'nebulizador', 'ventilador']);
@@ -68,6 +69,11 @@ function evento(ev) {
     case 'personas': personas = Array.isArray(v) ? v : []; refugio.setPersonas(personas); break;
     case 'desmayo': desmayo = { activo: !!v?.activo, persona: v?.persona ?? null }; refugio.setDesmayo(desmayo); break;
     case 'alerta':
+      if (v?.codigo === 'afluencia') {
+        const on = v.nivel !== 'info';
+        $('afluencia').style.display = on ? 'block' : 'none';
+        if (on) $('afluencia').textContent = '👥 ' + v.mensaje;
+      }
       if (v?.codigo === 'desmayo') {
         const on = v.nivel === 'critico';
         $('banner').style.display = on ? 'block' : 'none';
