@@ -267,6 +267,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { construirRefugio } from './oasi3d.js';
+import { construirEntorno, LUGAR_POR_KIT } from './entorno.js';
 const cont = document.getElementById('vista3d');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -278,8 +279,7 @@ scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnviron
 scene.add(new THREE.HemisphereLight(0xffffff, 0x667766, 0.8));
 const sol = new THREE.DirectionalLight(0xfff2d8, 2.2); sol.position.set(8, 14, 6); sol.castShadow = true;
 sol.shadow.mapSize.set(1024, 1024); Object.assign(sol.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14 }); scene.add(sol);
-const suelo = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: 0xc9c4ba, roughness: 0.95 }));
-suelo.rotation.x = -Math.PI / 2; suelo.position.y = -0.11; suelo.receiveShadow = true; scene.add(suelo);
+let entorno = null;
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.48; controls.autoRotate = true; controls.autoRotateSpeed = 0.8;
@@ -296,7 +296,7 @@ function gente(r) {
 }
 function mostrar(r) {
   if (!r || (actual && actual.id === r.id && actual.aforo === r.aforo)) return;
-  actual = r; refugio?.dispose();
+  actual = r; refugio?.dispose(); entorno?.dispose(); entorno = construirEntorno(scene, r.lugar || LUGAR_POR_KIT[r.kit] || 'bus');
   refugio = construirRefugio(scene, { kit: r.kit, n: r.n, arbol: r.arbol, cubierta: r.cubierta, tipo: r.tipo || 'cupula', etiquetas: false });
   refugio.set({ temp: r.temp, solar: 900 * r.n, bateria: 70, ac: !r.tipo && (r.temp ?? 0) > 27, claraboya: 0, nebulizador: !!r.tipo });
   refugio.setPersonas(gente(r));
