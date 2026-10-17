@@ -11,9 +11,10 @@
 //   Las posiciones se recortan al interior de la planta para que ningún avatar quede fuera.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as clonarRig } from 'three/addons/utils/SkeletonUtils.js';
 
-export const LADO = 3;          // m, lado del módulo
-const BASE = 1.2;               // altura de los pilares / arranque de la bóveda
+export const LADO = 4;          // m, lado del módulo
+const BASE = 2.2;               // altura de los pilares / arranque de la bóveda (persona 1,7 m)
 const R = LADO / 2;             // radio de la bóveda
 const TOPE = BASE + R;          // altura de la corona
 
@@ -93,6 +94,7 @@ const MODELOS = {
   banco: 'modelos/furnimesh/banco_enredaderas.glb',
   jardin: 'modelos/furnimesh/jardin_vertical.glb',
   parada: 'modelos/furnimesh/parada.glb',
+  persona: 'modelos/persona.glb',   // «An Elderly Man» (BELAZ, CC-BY 4.0), rig Mixamo; ver modelos/CREDITOS.md
 };
 const _glb = {};
 function cargarGLB(clave) {
@@ -117,6 +119,65 @@ function colocarModelo(base, { largo, alto, giroY = 0 }) {
   return pivote;
 }
 
+function texTarima() {
+  if (_tex.t) return _tex.t;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#a7835b' : '#b48e63'; g.fillRect(0, i * 16, 256, 16);
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, i * 16 + 15, 256, 1); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2);
+  t.colorSpace = THREE.SRGBColorSpace; return (_tex.t = t);
+}
+
+const ROPA = [0x2f6db5, 0xc0443a, 0x3a8f5a, 0xe0a030, 0x6b4fa8, 0x333a44, 0xd06c9a, 0x1f8a8a];
+const PIEL = [0xf0c8a0, 0xd9a77a, 0xa8704a, 0x7a4a2c, 0xf5d5b8];
+const PELO = [0x2a1d14, 0x4a3020, 0x8a6a3a, 0x111111, 0xb0a090];
+
+// --- persona con rig: pose estática por estado (de_pie / sentado / suelo) ---
+const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _d = new THREE.Vector3();
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _qr = new THREE.Quaternion();
+function alinearHueso(hueso, hijo, dirLocal, raiz) {
+  if (!hueso || !hijo) return;
+  raiz.getWorldQuaternion(_qr);
+  _d.copy(dirLocal).applyQuaternion(_qr).normalize();
+  hueso.updateMatrixWorld(true);
+  hueso.getWorldPosition(_v1); hijo.getWorldPosition(_v2); _v2.sub(_v1);
+  if (_v2.lengthSq() < 1e-10) return;
+  _qa.setFromUnitVectors(_v2.normalize(), _d);
+  hueso.getWorldQuaternion(_qb).premultiply(_qa);
+  hueso.parent.getWorldQuaternion(_qc).invert();
+  hueso.quaternion.copy(_qc.multiply(_qb));
+}
+const ABAJO = new THREE.Vector3(0, -1, 0), DELANTE = new THREE.Vector3(0, -0.05, 1);
+function posar(rig, estado) {
+  const h = rig.huesos;
+  for (const [b, q] of rig.bind) b.quaternion.copy(q);
+  const raiz = rig.raiz;
+  raiz.updateMatrixWorld(true);
+  for (const lado of ['Left', 'Right']) {
+    const sx = lado === 'Left' ? 1 : -1;
+    alinearHueso(h[lado + 'Arm'], h[lado + 'ForeArm'], new THREE.Vector3(0.12 * sx, -1, 0.02), raiz);
+    alinearHueso(h[lado + 'ForeArm'], h[lado + 'Hand'], estado === 'sentado' ? new THREE.Vector3(0.05 * sx, -0.4, 1) : new THREE.Vector3(0.05 * sx, -1, 0.12), raiz);
+    if (estado === 'sentado') {
+      alinearHueso(h[lado + 'UpLeg'], h[lado + 'Leg'], DELANTE, raiz);
+      alinearHueso(h[lado + 'Leg'], h[lado + 'Foot'], ABAJO, raiz);
+    } else {
+      alinearHueso(h[lado + 'UpLeg'], h[lado + 'Leg'], new THREE.Vector3(0.03 * sx, -1, 0), raiz);
+      alinearHueso(h[lado + 'Leg'], h[lado + 'Foot'], ABAJO, raiz);
+    }
+  }
+}
+function nuevoRig(base, escala) {
+  const raiz = new THREE.Group();
+  const m = clonarRig(base); m.scale.setScalar(escala); raiz.add(m);
+  const huesos = {}, bind = new Map(), mats = [];
+  m.traverse(o => {
+    if (o.isBone) { huesos[o.name.replace(/_\d+$/, '')] ??= o; bind.set(o, o.quaternion.clone()); }
+    if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.material = o.material.clone(); mats.push(o.material); }
+  });
+  return { raiz, huesos, bind, mats };
+}
+
 function aleatorio(semilla) { let s = semilla; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
 export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
@@ -137,7 +198,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
     thickness: 0.08, ior: 1.45, transparent: true, side: THREE.DoubleSide, attenuationColor: new THREE.Color(0x9fe0c0),
     attenuationDistance: 3 });
   const mEstruct = new THREE.MeshStandardMaterial({ color: 0x3c4a44, metalness: 0.7, roughness: 0.4 });
-  const mSuelo = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.85 });
+  const mSuelo = new THREE.MeshStandardMaterial({ map: texTarima(), roughness: 0.8 });
   const mBanco = new THREE.MeshStandardMaterial({ color: 0xb98a55, roughness: 0.7 });
   const mTierra = new THREE.MeshStandardMaterial({ color: 0x4a3322, roughness: 1 });
   const mMacetero = new THREE.MeshStandardMaterial({ color: 0x7a7a72, roughness: 0.8 });
@@ -230,7 +291,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
   const luzAC = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), new THREE.MeshBasicMaterial({ color: 0x333333 }));
   luzAC.position.set(0.26, 0.52, 0.3);
   ac.add(aspas, luzAC);
-  ac.position.set(limites.maxX + 0.45, 0, m0.cz); g.add(ac);
+  ac.scale.setScalar(0.8); ac.position.set(limites.maxX + 0.35, 0, limites.minZ + 0.8); g.add(ac);
 
   const bat = new THREE.Group();
   const caja = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 1.1), new THREE.MeshStandardMaterial({ color: 0x2c3a36, roughness: 0.6 }));
@@ -253,7 +314,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
     letrero.position.set(0, 2.65, 0);
     const techo = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.9), mEstruct); techo.position.set(-0.7, 2.5, -0.1);
     poste.add(tubo, letrero, techo);
-    poste.position.set(limites.maxX + 0.6, 0, 0.8); g.add(poste);
+    poste.position.set(limites.minX - 0.7, 0, 0.9); poste.rotation.y = Math.PI; g.add(poste);
   }
 
   // --- modelos 3D opcionales (asíncronos; 404 -> se queda lo procedural) ---
@@ -273,10 +334,30 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
       mod.position.set(cx, 0, -L + 0.45); g.add(mod);
     }
   });
-  if (kit === 'parada_bus') cargarGLB('parada').then(base => {
+  // --- árbol solar: el árbol del modelo (o tronco procedural) con una copa de placas FV encima ---
+  const arbol = new THREE.Group();
+  arbol.position.set(limites.maxX + 3.2, 0, limites.minZ + 1.5); g.add(arbol);
+  const ALTO_ARBOL = 3.6;
+  const troncoProc = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.3, ALTO_ARBOL, 12), new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.9 }));
+  troncoProc.position.y = ALTO_ARBOL / 2; arbol.add(troncoProc);
+  const copaFV = new THREE.Group(); copaFV.position.y = ALTO_ARBOL + 0.45; arbol.add(copaFV);
+  const mFVarbol = new THREE.MeshStandardMaterial({ map: texFV(1, 1), roughness: 0.3, metalness: 0.5, emissive: 0x3a7bff, emissiveIntensity: 0 });
+  mFV.push(mFVarbol);
+  const eje = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8), mEstruct); eje.position.y = -0.25; copaFV.add(eje);
+  for (let i = 0; i < 6; i++) {          // 6 «pétalos» de 1,6 x 1 m inclinados 15° hacia fuera
+    const a = i / 6 * Math.PI * 2, brazo = new THREE.Group(); brazo.rotation.y = a;
+    const pan = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.04, 1.6), mFVarbol); pan.position.set(0, 0, 1.0); pan.rotation.x = 0.26;
+    const barra = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.8), mEstruct); barra.position.set(0, -0.05, 0.9);
+    brazo.add(pan, barra); copaFV.add(brazo);
+  }
+  cargarGLB('parada').then(base => {
     if (!base || !vivo) return;
-    const mod = colocarModelo(base, { largo: 2.6 });
-    mod.position.set(limites.maxX + 2.4, 0, -0.6); g.add(mod);
+    const mod = colocarModelo(base, { alto: ALTO_ARBOL + 0.2 });
+    mod.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    troncoProc.visible = false; arbol.add(mod);
+    const caja = new THREE.Box3().setFromObject(mod), tam = caja.getSize(new THREE.Vector3());
+    copaFV.position.y = caja.max.y - arbol.position.y + 0.35;           // placas por ENCIMA de la copa
+    copaFV.scale.setScalar(Math.max(1, Math.max(tam.x, tam.z) / 4.4));   // cubren todo el ancho de la copa
   });
 
   // --- luz interior (noche) ---
@@ -303,17 +384,47 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
 
   function crearAvatar(clave, p, idx) {
     const grupo = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({ color: mats.normal, roughness: 0.6, emissive: 0x000000 });
-    const cuerpo = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.8, 4, 12), mat); cuerpo.position.y = 0.6;
-    const cabeza = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), new THREE.MeshStandardMaterial({ color: 0xf0c8a0, roughness: 0.7 }));
-    cabeza.position.y = 1.32;
-    const dorso = new THREE.Group(); dorso.add(cuerpo, cabeza);
+    const r = aleatorio(1 + (Number(p.id) || idx) * 7919);
+    const mat = new THREE.MeshStandardMaterial({ color: ROPA[Math.floor(r() * ROPA.length)], roughness: 0.75, emissive: 0x000000 });
+    const mPiel = new THREE.MeshStandardMaterial({ color: PIEL[Math.floor(r() * PIEL.length)], roughness: 0.7 });
+    const mPant = new THREE.MeshStandardMaterial({ color: r() < 0.5 ? 0x2b3a55 : 0x55504a, roughness: 0.85 });
+    const mPelo = new THREE.MeshStandardMaterial({ color: PELO[Math.floor(r() * PELO.length)], roughness: 0.9 });
+    const alto = 1.6 + r() * 0.25, k = alto / 1.75;
+    const dorso = new THREE.Group();
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.42, 4, 12), mat); torso.position.y = 1.2; torso.scale.set(1, 1, 0.7);
+    const cuello = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 8), mPiel); cuello.position.y = 1.5;
+    const cabeza = new THREE.Mesh(new THREE.SphereGeometry(0.11, 18, 14), mPiel); cabeza.position.y = 1.62; cabeza.scale.set(0.9, 1.05, 0.95);
+    const pelo = new THREE.Mesh(new THREE.SphereGeometry(0.115, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), mPelo); pelo.position.y = 1.64;
+    const brazos = [-1, 1].map(sx => { const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.5, 4, 8), mat);
+      b.position.set(sx * 0.23, 1.15, 0); b.rotation.z = sx * 0.08; return b; });
+    const manos = [-1, 1].map(sx => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), mPiel); m.position.set(sx * 0.25, 0.85, 0); return m; });
+    const piernas = [-1, 1].map(sx => { const l = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.72, 4, 8), mPant);
+      l.position.set(sx * 0.09, 0.46, 0); return l; });
+    const pies = [-1, 1].map(sx => { const f = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.24), mPelo); f.position.set(sx * 0.09, 0.03, 0.04); return f; });
+    const proc = new THREE.Group(); proc.add(torso, cuello, cabeza, pelo, ...brazos, ...manos, ...piernas, ...pies);
+    dorso.add(proc);
+    dorso.scale.setScalar(k);
+    dorso.traverse(o => { if (o.isMesh) o.castShadow = true; });
     grupo.add(dorso);
-    const etiqueta = crearEtiqueta(`Persona ${p.id ?? idx + 1}`); etiqueta.position.set(0, 1.9, 0);
+    grupo.rotation.y = r() * Math.PI * 2;
+    const etiqueta = crearEtiqueta(`Persona ${p.id ?? idx + 1}`); etiqueta.position.set(0, 2.05, 0);
     grupo.add(etiqueta);
     g.add(grupo);
-    return { grupo, dorso, mat, etiqueta, objetivo: new THREE.Vector3(), rotX: 0, escY: 1, nuevo: true, id: p.id };
+    const a = { grupo, dorso, proc, mat, k, etiqueta, objetivo: new THREE.Vector3(), rotX: 0, escY: 1, nuevo: true, id: p.id,
+      base: mat.color.getHex(), rig: null, posado: null };
+    if (personaBase) ponerRig(a);
+    return a;
   }
+  let personaBase = null;
+  function ponerRig(a) {
+    a.rig = nuevoRig(personaBase, 0.93);   // modelo 1,83 m -> 1,70 m (dorso escala ±7 %)
+    a.dorso.add(a.rig.raiz); a.proc.visible = false; a.posado = null;
+  }
+  cargarGLB('persona').then(base => {
+    if (!base || !vivo) return;
+    personaBase = base;
+    for (const a of avatares.values()) ponerRig(a);
+  });
   const clampX = x => Math.max(limites.minX + 0.3, Math.min(limites.maxX - 0.3, x));
   const clampZ = z => Math.max(limites.minZ + 0.3, Math.min(limites.maxZ - 0.3, z));
 
@@ -379,13 +490,19 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
         a.grupo.position.lerp(a.objetivo, k);
         const suelo = a.estado === 'suelo', sentado = a.estado === 'sentado';
         a.rotX += ((suelo ? -Math.PI / 2 : 0) - a.rotX) * k;
-        a.escY += ((sentado ? 0.65 : 1) - a.escY) * k;
         a.dorso.rotation.x = a.rotX;
-        a.dorso.scale.y = a.escY;
-        a.dorso.position.y = suelo ? 0.2 : sentado ? 0.15 : 0;
-        a.etiqueta.position.y = suelo ? 0.8 : sentado ? 1.4 : 1.9;
+        if (a.rig) {
+          if (a.posado !== a.estado) { posar(a.rig, sentado ? 'sentado' : 'de_pie'); a.posado = a.estado; }
+          a.dorso.position.y = suelo ? 0.12 : sentado ? -0.42 : 0;
+        } else {
+          a.escY += ((sentado ? 0.65 : 1) - a.escY) * k;
+          a.dorso.scale.y = a.escY * a.k;
+          a.dorso.position.y = suelo ? 0.15 : sentado ? 0.12 : 0;
+        }
+        a.etiqueta.position.y = suelo ? 0.7 : sentado ? 1.5 : 2.05;
         const rojo = a === objetivoDesm;
-        a.mat.color.set(rojo ? mats.rojo : mats.normal);
+        a.mat.color.set(rojo ? mats.rojo : a.base);
+        if (a.rig) for (const m of a.rig.mats) { m.emissive?.set(rojo ? 0xff0000 : 0x000000); if (m.emissive) m.emissiveIntensity = rojo ? 0.5 + 0.4 * Math.sin(tiempo * 8) : 0; }
         a.mat.emissive.set(rojo ? 0xff0000 : 0x000000);
         a.mat.emissiveIntensity = rojo ? 0.4 + 0.4 * Math.sin(tiempo * 8) : 0;
       }
@@ -404,6 +521,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
         ms.forEach(m => { m.map?.dispose(); m.dispose(); }); });
     },
   };
+  g.traverse(o => { if (o.isMesh && o.material !== mVidrio && o.material !== mAire) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(g);
   return api;
 }

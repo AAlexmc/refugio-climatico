@@ -18,3 +18,9 @@ para bajar de 8 MB. Los originales pesaban 29,2 / 21,2 / 11,3 MB.
 | furnimesh/banco_enredaderas.glb | Modern Concrete Bench (banco) | https://furnimesh.com/library/seating/bench/a-long-minimalist-public-seating-unit-constructed-7yjsa4/ |
 
 **En el repo público NO están los .glb** (licencia no declarada). Para la demo: cópialos a `web/modelos/furnimesh/` desde el PC del Ordenador 1 (USB) o descárgalos de las URLs de arriba. Sin ellos el gemelo usa la geometría procedural.
+
+## Personas
+
+| Fichero | Modelo | Autor | Licencia | Fuente |
+|---|---|---|---|---|
+| `persona.glb` | An Elderly Man (avatar Ready Player Me) | [BELAZ](https://sketchfab.com/asset_for_games) | **CC Attribution 4.0 — citar en la diapositiva final** | https://sketchfab.com/3d-models/an-elderly-man-60cca77799e249e39ef53e3112baa4a7 |
