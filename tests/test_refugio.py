@@ -7,6 +7,7 @@ from sim.clima import FuenteClimaSim
 
 
 def montar(**kw):
+    kw.setdefault("reloj", lambda: RELOJ[0])
     bus = Bus()
     avisos = []
     m = MotorReglas(bus, avisar=lambda r, msg: avisos.append((r, msg)), **kw)
@@ -14,6 +15,9 @@ def montar(**kw):
     vistos = []
     bus.oyente(vistos.append)
     return bus, avisos, vistos
+
+
+RELOJ = [0.0]
 
 
 def cmds(vistos, destino):
@@ -122,6 +126,9 @@ def test_cuatro_personas_activan_refuerzo_termico():
     assert cmds(vistos, "claraboya")[-1] == 1.0                    # sigue ventilando
     al = [e.valor for e in vistos if e.tipo == "alerta" and e.valor["codigo"] == "afluencia"]
     assert al[-1]["nivel"] == "aviso" and "4 personas" in al[-1]["mensaje"]
+    medir(bus, aforo=2)                                            # parpadeo: se mantiene
+    assert cmds(vistos, "ventilador")[-1] is True
+    RELOJ[0] += 31
     medir(bus, aforo=2)
     assert cmds(vistos, "ventilador")[-1] is False and cmds(vistos, "nebulizador")[-1] is False
     assert cmds(vistos, "ac")[-1] is False
