@@ -3,73 +3,107 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OASI — gemelo 3D</title>
+<title>OASI — Pabellón Venturi</title>
 <style>
-  :root { --bg:#0f1714; --card:#17221dcc; --txt:#e6efe9; --mut:#8aa397; --ok:#3ecf8e; --cr:#ff3b3b; --acc:#5cc8ff; }
+  :root { --bg:#0f1714; --card:#17221dcc; --card2:#141d19; --txt:#e6efe9; --mut:#8aa397; --line:#2a3a32;
+          --ok:#3ecf8e; --cr:#ff3b3b; --acc:#5cc8ff;
+          --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#9085e9; --s5:#c98500; --grid:#24302a; }
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--txt); font-family:system-ui,sans-serif; }
-  canvas { display:block; width:100%; height:100%; }
-  nav { position:fixed; left:12px; top:66px; z-index:5; font-size:14px; }
-  nav a { color:var(--acc); margin-right:10px; }
-  #hud { position:fixed; right:10px; top:66px; width:190px; background:var(--card); border-radius:10px; padding:10px 12px; z-index:5; font-size:13px; }
-  #hud h2 { margin:0 0 6px; font-size:14px; }
-  #hud div { display:flex; justify-content:space-between; padding:2px 0; } #hud span { color:var(--mut); } #hud b { font-weight:600; }
-  #estado { position:fixed; left:12px; bottom:10px; z-index:5; font-size:13px; padding:4px 10px; border-radius:12px; background:var(--card); }
+  body { display:flex; flex-direction:column; }
+  #arriba { position:relative; flex:1 1 auto; min-height:160px; overflow:hidden; }
+  #arriba canvas { display:block; width:100%; height:100%; }
+  #barra { flex:0 0 10px; cursor:row-resize; background:var(--line); position:relative; touch-action:none; }
+  #barra::after { content:''; position:absolute; left:50%; top:3px; width:48px; height:4px; margin-left:-24px; border-radius:2px; background:var(--mut); }
+  #abajo { flex:0 0 var(--alto-metricas, 36vh); min-height:120px; overflow:auto; background:var(--card2); padding:10px 14px 14px; }
+  .ov { position:absolute; z-index:5; }
+  nav { left:12px; top:10px; font-size:14px; } nav a { color:var(--acc); margin-right:10px; }
+  #hud { right:10px; top:10px; width:270px; background:var(--card); border-radius:10px; padding:10px 12px; font-size:12.5px; max-height:calc(100% - 20px); overflow:auto; }
+  #hud h2 { margin:0 0 6px; font-size:14px; } #hud h3 { margin:8px 0 4px; font-size:12px; color:var(--acc); text-transform:uppercase; letter-spacing:.05em; }
+  #hud div { display:flex; justify-content:space-between; padding:1.5px 0; } #hud span { color:var(--mut); } #hud b { font-weight:600; font-variant-numeric:tabular-nums; }
+  #estado { left:12px; bottom:10px; font-size:13px; padding:4px 10px; border-radius:12px; background:var(--card); }
   #estado.off { color:#ffb347; }
-  #afluencia { position:fixed; left:50%; transform:translateX(-50%); bottom:64px; z-index:8; background:#e9a400; color:#111;
-    font-weight:700; padding:8px 16px; border-radius:10px; display:none; max-width:92vw; text-align:center; }
-  #guion { position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:8; background:#1d3a52; color:var(--txt);
-    border:2px solid var(--acc); padding:8px 16px; border-radius:10px; display:none; max-width:80vw; text-align:center; }
-  #banner { position:fixed; left:0; right:0; top:0; z-index:9; background:var(--cr); color:#fff; text-align:center; font-weight:700;
-    font-size:26px; padding:14px; display:none; animation:pulso 1s infinite; }
+  #afluencia { left:50%; transform:translateX(-50%); bottom:56px; z-index:8; background:#e9a400; color:#111;
+    font-weight:700; padding:8px 16px; border-radius:10px; display:none; max-width:92%; text-align:center; }
+  #guion { left:50%; transform:translateX(-50%); bottom:10px; z-index:8; background:#1d3a52; border:2px solid var(--acc);
+    padding:8px 16px; border-radius:10px; display:none; max-width:80%; text-align:center; }
+  #banner { left:0; right:0; top:0; z-index:9; background:var(--cr); color:#fff; text-align:center; font-weight:700;
+    font-size:24px; padding:12px; display:none; animation:pulso 1s infinite; }
   @keyframes pulso { 50% { background:#a00; } }
-  #cfg { position:fixed; left:12px; top:96px; z-index:6; width:230px; background:var(--card); border-radius:10px; padding:10px 12px; font-size:13px;
-    display:flex; flex-direction:column; gap:7px; }
-  #cfg label { display:flex; justify-content:space-between; align-items:center; gap:6px; color:var(--mut); }
-  #cfg select { background:#0f1714; color:var(--txt); border:1px solid #35503f; border-radius:6px; padding:3px; max-width:140px; }
+  #cfg { left:12px; top:38px; width:250px; background:var(--card); border-radius:10px; padding:10px 12px; font-size:13px;
+    display:flex; flex-direction:column; gap:7px; max-height:calc(100% - 48px); overflow:auto; }
+  #cfg label, #cfg .fila { display:flex; justify-content:space-between; align-items:center; gap:6px; color:var(--mut); }
+  #cfg select { background:#0f1714; color:var(--txt); border:1px solid #35503f; border-radius:6px; padding:3px; }
   #cfg button { background:#24342c; color:var(--txt); border:1px solid #35503f; border-radius:6px; padding:5px 9px; cursor:pointer; }
-  #cfg .nbox { display:flex; align-items:center; gap:8px; } #cfg .nbox b { color:var(--txt); min-width:14px; text-align:center; }
-  #cfg small { color:var(--mut); }
-  @media (max-width:500px) { #cfg { top:auto; bottom:52px; width:calc(100vw - 24px); } }
-  @media (max-width:500px) { #hud { width:150px; font-size:12px; } }
+  #cfg button.sel { background:var(--s3); border-color:var(--s3); color:#fff; }
+  #cfg .nbox { display:flex; align-items:center; gap:8px; } #cfg .nbox b { color:var(--txt); min-width:44px; text-align:center; }
+  #cfg .seg { display:flex; gap:3px; } #cfg small { color:var(--mut); line-height:1.35; }
+  /* métricas del día */
+  #abajo h2 { margin:0; font-size:14px; } #abajo .sub { color:var(--mut); font-size:12px; margin:2px 0 8px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:8px; margin-bottom:10px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 10px; }
+  .tile small { color:var(--mut); display:block; font-size:11.5px; } .tile b { font-size:20px; font-variant-numeric:tabular-nums; }
+  .graficas { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px 2px; position:relative; }
+  .card h3 { margin:0; font-size:13px; } .leyenda { display:flex; gap:12px; font-size:11.5px; color:var(--mut); margin:2px 0; flex-wrap:wrap; }
+  .leyenda i { display:inline-block; width:14px; height:3px; border-radius:2px; vertical-align:middle; margin-right:5px; }
+  .card svg { width:100%; height:150px; display:block; cursor:crosshair; }
+  svg text { fill:var(--mut); font-size:10.5px; } svg .lab { fill:var(--txt); font-weight:600; }
+  .tip { position:absolute; pointer-events:none; background:#0f1714; border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:12px; display:none; white-space:nowrap; z-index:3; }
+  .tip i { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+  @media (max-width:640px) { #cfg { width:calc(100% - 24px); max-height:40%; } #hud { display:none; } }
 </style>
 </head>
 <body>
-<div id="banner"></div>
-<div id="cfg">
-  <b>Configurar refugio</b>
-  <label>Lugar <select id="c_lugar"><option value="bus">Parada de bus</option><option value="plaza">Plaza</option><option value="terraza">Azotea de edificio</option></select></label>
-  <label>Tipo <select id="c_tipo"><option value="cupula">Cúpula modular</option><option value="marquesina">Marquesina bioclimática</option><option value="pabellon">Pabellón Venturi</option><option value="pergola">Pérgola con toldo (Refugi climàtic)</option><option value="arbol_solar">Árbol solar + agua</option>
-    <option value="jardin">Jardín vertical + pérgola FV</option><option value="banco_solar">Banco de piedra + placas</option></select></label>
-  <label id="l_kit">Kit <select id="c_kit"><option value="parada_bus">Parada de bus</option><option value="terraza_comunitaria">Terraza comunitaria</option>
-    <option value="terraza_privada">Terraza privada</option></select></label>
-  <label id="l_n">Módulos <span class="nbox"><button id="c_menos">−</button><b id="c_n">2</b><button id="c_mas">+</button></span></label>
-  <label id="l_cub">Cubierta <select id="c_cub"><option value="vidrio_control_solar">Vidrio control solar</option><option value="etfe_3_capas_frit">ETFE serigrafiado</option>
-    <option value="policarbonato_opal_ir">Policarbonato opal</option></select></label>
-  <label id="l_arb"><input type="checkbox" id="c_arbol" checked> Árbol solar al lado</label>
-  <small id="c_info"></small>
-  <b style="margin-top:4px">Sol y sombra · <span id="s_hora"></span></b>
-  <div style="display:flex;gap:6px;align-items:center"><button id="s_play" title="Animar el día">▶</button>
-    <input id="s_rango" type="range" min="5.5" max="21.5" step="0.25" style="flex:1"></div>
-  <small id="s_info"></small>
-  <button id="c_aplicar">Aplicar al refugio real</button>
-</div>
-<div id="afluencia"></div>
-<div id="guion"></div>
-<nav><a href="/">Panel</a><a href="/camara.html">Cámara</a><a href="/metricas.html">Métricas</a><a href="/configurador.html">Configurador</a><a href="/mapa.html">Mapa</a></nav>
-<div id="hud">
-  <h2>Refugio <span id="h_ref"></span></h2>
-  <div><span>Interior</span><b id="h_temp">—</b></div>
-  <div><span>Exterior</span><b id="h_ext">—</b></div>
-  <div><span>Aforo</span><b id="h_aforo">—</b></div>
-  <div><span>Batería</span><b id="h_bat">—</b></div>
-  <div><span>Solar</span><b id="h_sol">—</b></div>
-  <div><span>Claraboya</span><b id="h_cla">—</b></div>
-  <div><span>AC</span><b id="h_ac">—</b></div>
-  <div><span>Nebulizador</span><b id="h_neb">—</b></div>
-  <div><span>Ventilador</span><b id="h_ven">—</b></div>
-</div>
-<div id="estado" class="off">sin conexión</div>
+<section id="arriba">
+  <div id="banner" class="ov"></div>
+  <nav class="ov"><a href="/">Panel</a><a href="/camara.html">Cámara</a><a href="/metricas.html">Métricas</a><a href="/mapa.html">Mapa</a></nav>
+  <div id="cfg" class="ov">
+    <b>Pabellón Venturi</b>
+    <label>Lugar <select id="c_lugar"><option value="bus">Parada de bus</option><option value="plaza">Plaza</option><option value="terraza">Azotea de edificio</option></select></label>
+    <div class="fila">Largo <span class="nbox"><button id="c_menos" aria-label="Más corto">−</button><b id="c_largo">6 m</b><button id="c_mas" aria-label="Más largo">+</button></span></div>
+    <div class="fila">Ancho <span class="seg" id="c_ancho"><button data-a="2.4">2,4</button><button data-a="3.6">3,6</button><button data-a="4.8">4,8 m</button></span></div>
+    <small id="c_info"></small>
+    <b style="margin-top:4px">Sol y sombra · <span id="s_hora"></span></b>
+    <div style="display:flex;gap:6px;align-items:center"><button id="s_play" title="Animar el día">▶</button>
+      <input id="s_rango" type="range" min="5.5" max="21.5" step="0.25" style="flex:1" aria-label="Hora del día"></div>
+    <small id="s_info"></small>
+    <button id="c_aplicar">Aplicar al refugio real</button>
+  </div>
+  <div id="hud" class="ov">
+    <h2>Refugio <span id="h_ref"></span></h2>
+    <div><span>Dentro / fuera</span><b id="h_temp">—</b></div>
+    <div><span>Sensación dentro / fuera</span><b id="h_at">—</b></div>
+    <div><span>Aforo</span><b id="h_aforo">—</b></div>
+    <div><span>Batería · solar</span><b id="h_bat">—</b></div>
+    <div><span>Garganta Venturi</span><b id="h_cla">—</b></div>
+    <div><span>AC · nebul. · extract.</span><b id="h_act">—</b></div>
+    <h3>Física del aire</h3>
+    <div><span>Viento</span><b id="f_viento">—</b></div>
+    <div><span>Succión Venturi</span><b id="f_dpv">—</b></div>
+    <div><span>Tiro térmico</span><b id="f_dps">—</b></div>
+    <div><span>Caudal</span><b id="f_q">—</b></div>
+    <div><span>Renovaciones</span><b id="f_ach">—</b></div>
+    <div><span>Aire en las personas</span><b id="f_v">—</b></div>
+    <div><span>Enfriam. evaporativo</span><b id="f_ev">—</b></div>
+    <div><span>Bulbo húmedo</span><b id="f_bh">—</b></div>
+  </div>
+  <div id="afluencia" class="ov"></div>
+  <div id="guion" class="ov"></div>
+  <div id="estado" class="ov off">sin conexión</div>
+</section>
+<div id="barra" role="separator" aria-orientation="horizontal" aria-label="Redimensionar simulación y métricas" tabindex="0"></div>
+<section id="abajo">
+  <h2>Un día de ola de calor en Barcelona · <span id="m_geo"></span></h2>
+  <p class="sub">Simulación física de 24 h (sim/fisica_pabellon.py). La línea vertical es la hora del sol de arriba; haz clic en una gráfica para mover la hora.</p>
+  <div class="tiles" id="m_tiles"></div>
+  <div class="graficas">
+    <div class="card" id="g_temp"><h3>Temperatura y sensación (°C)</h3></div>
+    <div class="card" id="g_aire"><h3>Ventilación: caudal de aire (m³/h)</h3></div>
+    <div class="card" id="g_ener"><h3>Energía: placas vs consumo (W)</h3></div>
+    <div class="card" id="g_bat"><h3>Batería (%)</h3></div>
+  </div>
+</section>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/" } }</script>
 <script type="module" src="./gemelo.js"></script>
 </body>

@@ -3,7 +3,8 @@ import time
 
 from sim import metricas
 
-SERIES = {"t", "temp_calle", "temp_oasi", "temp_cupula", "solar", "consumo", "bateria", "aforo"}
+SERIES = {"t", "temp_calle", "temp_oasi", "temp_cupula", "solar", "consumo", "bateria", "aforo",
+          "t_aparente_oasi", "t_aparente_calle", "caudal_m3h", "viento"}   # física del pabellón
 RESUMEN = {"grados_reducidos_pico", "horas_riesgo_evitadas", "kwh_solares", "pct_autoconsumo",
            "autonomia_h", "coste_eur_dia", "co2_kg_evitado", "materiales", "kits"}
 
@@ -31,7 +32,7 @@ def test_cupula_sin_control_es_invernadero():
 def test_bateria_en_rango_y_aforo():
     s = metricas.escenario()["series"]
     assert all(0 <= b <= 100 for b in s["bateria"])
-    assert max(s["aforo"]) == 20 and min(s["aforo"]) == 4
+    assert max(s["aforo"]) == 9 and min(s["aforo"]) == 2   # pabellón 6 × 2,4 m: 9 plazas (1,5 m²/persona)
 
 
 def test_rapido_y_determinista():

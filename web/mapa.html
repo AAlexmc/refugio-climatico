@@ -148,16 +148,16 @@ const M_POR_UNIDAD = 22, FACTOR_CALLE = 1.3, M_MIN = 80;
 // aforo máx = módulos del kit × aforo del módulo (de /api/kits; constantes si falla)
 const KIT_FALLBACK = {parada_bus:2, terraza_comunitaria:6, terraza_privada:1};
 let KITS = {...KIT_FALLBACK}, AFORO_MOD = 10;
-const R = [
-  {id:"R1", nombre:"Pl. Catalunya",   x:165, y:205, kit:"parada_bus", n:2, arbol:true,  cubierta:"vidrio_control_solar", real:true, aforo:null, temp:null, ext:null, alerta:null},
-  {id:"S2", nombre:"Sagrada Família", x:205, y:105, kit:"terraza_comunitaria", n:6, arbol:true, cubierta:"etfe_3_capas_frit", real:false, aforo:47, temp:27.4, ext:35.8},
-  {id:"S3", nombre:"Glòries",         x:238, y:142, kit:"parada_bus", tipo:"marquesina", n:1, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:9, temp:29.5, ext:36.4},
-  {id:"S4", nombre:"Sants Estació",   x:72,  y:222, kit:"parada_bus", tipo:"arbol_solar", n:1, arbol:true, cubierta:"vidrio_control_solar", real:false, aforo:6,  temp:29.0, ext:35.1},
-  {id:"S5", nombre:"Pl. Espanya",     x:98,  y:268, kit:"terraza_comunitaria", n:4, arbol:true, cubierta:"policarbonato_opal_ir", real:false, aforo:21, temp:26.8, ext:35.5},
-  {id:"S6", nombre:"Fabra i Puig",    x:252, y:62,  kit:"terraza_privada", tipo:"jardin", n:1, arbol:false, cubierta:"etfe_3_capas_frit", real:false, aforo:8,  temp:28.4, ext:36.0},
-  {id:"S8", nombre:"Pl. Universitat", x:142, y:226, kit:"terraza_comunitaria", lugar:"plaza", tipo:"pabellon", n:2, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:11, temp:28.0, ext:36.1},
-  {id:"S9", nombre:"Pl. de la Vila de Gràcia", x:176, y:150, kit:"terraza_comunitaria", lugar:"plaza", tipo:"pergola", n:2, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:12, temp:28.6, ext:35.7},
-  {id:"S7", nombre:"Pl. del Sol",     x:150, y:122, kit:"terraza_privada", tipo:"banco_solar", n:1, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:4,  temp:30.2, ext:35.9}
+const R = [   // todos son Pabellón Venturi; cambian largo, ancho y lugar
+  {id:"R1", nombre:"Pl. Catalunya",   x:165, y:205, kit:"parada_bus", lugar:"bus", largo:6, ancho:2.4, real:true, aforo:null, temp:null, ext:null, alerta:null},
+  {id:"S2", nombre:"Sagrada Família", x:205, y:105, kit:"terraza_comunitaria", lugar:"plaza", largo:12, ancho:4.8, real:false, aforo:31, temp:27.4, ext:35.8},
+  {id:"S3", nombre:"Glòries",         x:238, y:142, kit:"parada_bus", lugar:"bus", largo:8, ancho:2.4, real:false, aforo:12, temp:28.1, ext:36.4},
+  {id:"S4", nombre:"Sants Estació",   x:72,  y:222, kit:"parada_bus", lugar:"bus", largo:4, ancho:2.4, real:false, aforo:6,  temp:28.9, ext:35.1},
+  {id:"S5", nombre:"Pl. Espanya",     x:98,  y:268, kit:"terraza_comunitaria", lugar:"plaza", largo:10, ancho:3.6, real:false, aforo:21, temp:26.8, ext:35.5},
+  {id:"S6", nombre:"Fabra i Puig",    x:252, y:62,  kit:"terraza_privada", lugar:"terraza", largo:6, ancho:3.6, real:false, aforo:8,  temp:28.4, ext:36.0},
+  {id:"S8", nombre:"Pl. Universitat", x:142, y:226, kit:"terraza_comunitaria", lugar:"plaza", largo:8, ancho:3.6, real:false, aforo:11, temp:28.0, ext:36.1},
+  {id:"S9", nombre:"Pl. de la Vila de Gràcia", x:176, y:150, kit:"terraza_comunitaria", lugar:"plaza", largo:6, ancho:4.8, real:false, aforo:12, temp:28.6, ext:35.7},
+  {id:"S7", nombre:"Pl. del Sol",     x:150, y:122, kit:"terraza_privada", lugar:"terraza", largo:4, ancho:3.6, real:false, aforo:4,  temp:30.2, ext:35.9}
 ];
 const KIT_NOMBRE = {parada_bus:"Parada de bus", terraza_comunitaria:"Terraza comunitaria", terraza_privada:"Terraza privada"};
 const TIPO_NOMBRE = {pergola:"Refugi climàtic: pérgola de madera con toldo tensado y núcleo de biblioteca", pabellon:"Pabellón Venturi 6 m (techo semicircular, extractores, puertas entrada/salida)", marquesina:"Marquesina bioclimática 6 × 2,2 m (vidrio con enredaderas, techo solar, chimenea, rociadores con cámara IA)", arbol_solar:"Árbol solar con nebulización", jardin:"Jardín vertical con pérgola solar", banco_solar:"Banco de piedra con placas solares"};
@@ -165,7 +165,7 @@ const CUB_NOMBRE = {vidrio_control_solar:"vidrio control solar", etfe_3_capas_fr
 let lang = (navigator.language || "es").slice(0, 2); if (!I18N[lang]) lang = "es";
 let tu = {x:135, y:185}, sel = new URLSearchParams(location.search).get("sel") || "R1", rutaA = null, wsOk = false;
 const t = k => I18N[lang][k];
-const maxAforo = r => (r.n || KITS[r.kit] || KIT_FALLBACK[r.kit]) * AFORO_MOD;
+const maxAforo = r => Math.floor(r.largo * r.ancho / 1.5);   // 1,5 m² por persona
 const libres = r => r.aforo == null ? null : Math.max(0, maxAforo(r) - r.aforo);
 function estado(r){ if (r.aforo == null) return "nd"; const f = r.aforo / maxAforo(r); return f >= 1 ? "crit" : f > 0.7 ? "warn" : "ok"; }
 const dist = r => Math.hypot(r.x - tu.x, r.y - tu.y);
@@ -206,7 +206,7 @@ function ficha(){
   const dif = (r.temp != null && r.ext != null) ? r.ext - r.temp : null;
   el.innerHTML = `<h2>${r.nombre} <span class="tag ${r.real ? "real" : "sim"}">${r.real ? "● " + t("real") : t("sim")}</span></h2>
     <span class="estado ${e}">${GLIFO[e]} ${t(e)}</span>
-    <p style="margin:8px 0 0;color:var(--text-2);font-size:.85rem">${r.tipo ? TIPO_NOMBRE[r.tipo] : `${KIT_NOMBRE[r.kit]} · ${r.n} módulo${r.n > 1 ? "s" : ""} · ${CUB_NOMBRE[r.cubierta]}${r.arbol ? " · árbol solar" : ""}`} · fuente de agua</p>
+    <p style="margin:8px 0 0;color:var(--text-2);font-size:.85rem">${`Pabellón Venturi ${r.largo} × ${String(r.ancho).replace(".", ",")} m · ${(r.largo * r.ancho).toFixed(1).replace(".", ",")} m²`} · fuente de agua</p>
     ${r.alerta ? `<div class="alerta">⚠ ${t("alerta")}: ${r.alerta}</div>` : ""}
     <dl>
       <dt>${t("dentro")}</dt><dd>${fmt(r.temp)}</dd>
@@ -299,13 +299,12 @@ function gente(r) {
 function mostrar(r) {
   if (!r || (actual && actual.id === r.id && actual.aforo === r.aforo)) return;
   actual = r; refugio?.dispose(); entorno?.dispose(); entorno = construirEntorno(scene, r.lugar || LUGAR_POR_KIT[r.kit] || 'bus');
-  refugio = construirRefugio(scene, { kit: r.kit, n: r.n, arbol: r.arbol, cubierta: r.cubierta, tipo: r.tipo || 'cupula', etiquetas: false });
-  refugio.set({ temp: r.temp, solar: 900 * r.n, bateria: 70, ac: !r.tipo && (r.temp ?? 0) > 27, claraboya: 0, nebulizador: !!r.tipo });
+  refugio = construirRefugio(scene, { tipo: 'pabellon', largo: r.largo, ancho: r.ancho, etiquetas: false });
+  refugio.set({ temp: r.temp, solar: 300 * r.largo, bateria: 70, ac: (r.temp ?? 0) > 27, claraboya: 0, nebulizador: (r.temp ?? 0) > 28, ventilador: true });
   refugio.setPersonas(gente(r));
-  const c = refugio.centro, d = Math.max(9, r.n * 2.6 + 6) * (r.arbol ? 1.15 : 1);
+  const c = refugio.centro, d = Math.max(9, r.largo * 1.1 + r.ancho * 1.2);
   controls.target.copy(c);
-  if (r.tipo === 'pergola') camera.position.set(c.x - 6, 2.8, c.z + 12);   // bajo el toldo se ve el núcleo
-  else camera.position.set(c.x + d * 0.85, d * 0.55, c.z + d * 0.75);
+  camera.position.set(c.x + d * 0.85, d * 0.55, c.z + d * 0.75);
   controls.autoRotate = true;
 }
 function grande(on) { cont.classList.toggle('grande', on); requestAnimationFrame(ajustar); }

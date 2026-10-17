@@ -24,24 +24,34 @@ EUR_KWH = 0.20
 KG_CO2_KWH = 0.2
 
 
-def aforo_en(h: float) -> int:
-    """4 de noche, 15 de 10 a 19 h, pico de 20 en la primera media hora de las horas pares."""
+def aforo_en(h: float, cap: int = 20) -> int:
+    """Ocupación según la capacidad `cap`: casi vacío de noche (1-2), 30 % por la mañana y al
+    anochecer, 75 % de 10 a 19 h y lleno en la primera media hora de las horas pares (autobús)."""
     if 10 <= h < 19:
-        return 20 if (int(h) % 2 == 0 and h % 1 < 0.5) else 15
-    return 4
+        return cap if (int(h) % 2 == 0 and h % 1 < 0.5) else round(0.75 * cap)
+    if 7 <= h < 10 or 19 <= h < 23:
+        return max(1, round(0.3 * cap))
+    return min(2, cap)
 
 
 def _r(x: float, n: int = 1) -> float:
     return round(float(x), n)
 
 
-def _simular(dias: int = DIAS, cubierta: str | None = None, modulos: int | None = None) -> dict:
+def _simular(dias: int = DIAS, cubierta: str | None = None, modulos: int | None = None,
+             largo: float | None = None, ancho: float | None = None) -> dict:
     bus = Bus()
     m = MotorReglas(bus, avisar=lambda r, msg: None)
     bus.oyente(m.procesar)
-    oasi = clima.FuenteClimaSim(inicio_hora=0.0)
+    # escenario principal = Pabellón Venturi (6 m) con física de ventilación; los extras por
+    # cubierta/módulos siguen usando el modelo de cúpula para comparar materiales
+    tipo = "pabellon" if cubierta is None and modulos is None else "cupula"
+    oasi = clima.FuenteClimaSim(inicio_hora=0.0, tipo=tipo)
     bus.oyente(oasi._oir)
-    cup = clima.FuenteClimaSim(inicio_hora=0.0)
+    cup = clima.FuenteClimaSim(inicio_hora=0.0, tipo=tipo)
+    if tipo == "pabellon" and (largo or ancho):
+        for f in (oasi, cup):
+            f._modulos({"tipo": "pabellon", "largo": largo or 6.0, "ancho": ancho or 2.4})
     if cubierta is not None or modulos is not None:
         ev = {"n": modulos or clima.MODULOS_BASE}
         if cubierta:
@@ -50,6 +60,7 @@ def _simular(dias: int = DIAS, cubierta: str | None = None, modulos: int | None 
             f._modulos(ev)   # sin reglas: claraboya cerrada, nada encendido
     ref = oasi.refugio
     t, calle, t_oasi, t_cup, solar, cons, bat, afo = ([] for _ in range(8))
+    at_oasi, at_calle, caudal, viento = ([] for _ in range(4))
     n_sub = round(PASO_S / CTRL_S)
     kwh_sol = kwh_cons = kwh_red = 0.0           # J -> kWh al final
     ries_calle = ries_oasi = 0                   # subpasos con índice de calor > umbral
@@ -61,7 +72,7 @@ def _simular(dias: int = DIAS, cubierta: str | None = None, modulos: int | None 
             seg = i * PASO_S + j * CTRL_S
             h = (seg / 3600.0) % 24
             oasi.offset_t_ext = cup.offset_t_ext = OFFSET_DIA[min(int(seg // 86400), len(OFFSET_DIA) - 1)]
-            a = aforo_en(h)
+            a = aforo_en(h, oasi.aforo_max or 20)
             cup.aforo = a
             bus.publicar(Evento("aforo", a, "sim", ref))   # oasi lo recibe por el bus
             d = oasi.paso(CTRL_S)
@@ -88,6 +99,10 @@ def _simular(dias: int = DIAS, cubierta: str | None = None, modulos: int | None 
         cons.append(cons_m)
         bat.append(d["bateria"])
         afo.append(a)
+        fz = oasi.fisica
+        if fz:
+            at_oasi.append(fz["t_aparente"]); at_calle.append(fz["t_aparente_ext"])
+            caudal.append(fz["caudal_m3h"]); viento.append(fz["viento"])
     kwh_sol, kwh_cons, kwh_red = (x / 3.6e6 for x in (kwh_sol, kwh_cons, kwh_red))
     cons_noche = noche_w / noche_n if noche_n else kwh_cons * 1000.0 / (dias * 24)
     usable_kwh = oasi.bat_kwh * (100.0 - clima.BAT_RESERVA) / 100.0
@@ -97,7 +112,9 @@ def _simular(dias: int = DIAS, cubierta: str | None = None, modulos: int | None 
     res = {
         "series": {"t": t, "temp_calle": [_r(x, 2) for x in calle], "temp_oasi": [_r(x, 2) for x in t_oasi],
                    "temp_cupula": [_r(x, 2) for x in t_cup], "solar": [int(x) for x in solar],
-                   "consumo": [int(x) for x in cons], "bateria": [_r(x) for x in bat], "aforo": afo},
+                   "consumo": [int(x) for x in cons], "bateria": [_r(x) for x in bat], "aforo": afo,
+                   **({"t_aparente_oasi": at_oasi, "t_aparente_calle": at_calle, "caudal_m3h": caudal, "viento": viento}
+                      if at_oasi else {})},
         "resumen": {
             "grados_reducidos_pico": _r(pico),
             "horas_riesgo_evitadas": _r(ries_calle - ries_oasi),
@@ -139,3 +156,14 @@ def _extras() -> dict:
 @lru_cache(maxsize=1)
 def escenario() -> dict:
     return _simular()
+
+
+@lru_cache(maxsize=16)
+def dia(largo: float = 6.0, ancho: float = 2.4) -> dict:
+    """Un día de ola de calor para un pabellón de largo x ancho (panel inferior del gemelo)."""
+    from sim import fisica_pabellon as fp
+    p = fp.pabellon(largo, ancho)
+    r = _simular(1, largo=p.largo, ancho=p.ancho)
+    r["pabellon"] = {"largo": p.largo, "ancho": p.ancho, "volumen_m3": round(p.volumen, 1),
+                     "aforo_max": int(p.largo * p.ancho / 1.5), "extractores": p.extractores, "boquillas": p.boquillas}
+    return r

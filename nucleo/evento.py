@@ -26,6 +26,8 @@ TIPOS: dict[str, str] = {
     "luz": "",                 # 0..1 (LDR normalizado)
     "lluvia": "",              # bool
     "viento": "m/s",
+    "fisica": "",              # dict: ventilación del pabellón (dp_venturi, dp_chimenea Pa, caudal_m3h,
+                               # renovaciones_h, v_ocupante m/s, evaporativo_w, t_aparente °C…), sim/fisica_pabellon.py
     # --- visión (ordenador 1) ---
     "aforo": "personas",       # int: personas dentro ahora (RealSense + detector con etiquetas)
     "personas": "",            # list[{"id": int|None, "x": m|None, "y": m|None, "etiqueta": str, "estado": "de_pie"|"sentado"|"suelo"}]

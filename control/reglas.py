@@ -36,6 +36,8 @@ from nucleo.evento import Evento, alerta
 IC_AC_ON = 27.0
 HISTERESIS = 1.0
 DELTA_VENT = 1.0
+T_VENT_MAX = 28.0       # °C exteriores máximos para ventilar en vez de enfriar con AC
+VENT_TOLERANCIA = 1.0   # °C que fuera puede estar por encima de dentro y aún compensa (aire en movimiento)
 AFORO_MAX = 20
 AFORO_ACTIVAR = 4         # personas: a partir de aquí se refuerza el sistema térmico
 IC_AC_AFLUENCIA = 25.0
@@ -167,7 +169,9 @@ class MotorReglas:
         aforo = int(v.get("aforo", 0) or 0)
         lluvia = v.get("lluvia") is True
 
-        ventilar = (not lluvia) and te is not None and float(te) <= t - DELTA_VENT and float(te) < IC_AC_ON
+        # refrescar con aire de fuera (garganta Venturi abierta, sin AC) si fuera no hace más de 28 °C
+        # y no está más de 1 °C por encima de dentro: con brisa, la sensación baja ~0,7 °C por m/s
+        ventilar = (not lluvia) and te is not None and float(te) < T_VENT_MAX and float(te) <= t + VENT_TOLERANCIA
         if not ventilar:
             claraboya = 0.0
         elif float(te) <= t - DELTA_PARCIAL:

@@ -112,6 +112,11 @@ def crear_app(nombres: list[tuple[str, dict]] | None = None, *, bus: Bus | None 
         from sim import metricas as m
         return await asyncio.to_thread(m.escenario)
 
+    @app.get("/api/metricas/dia")
+    async def metricas_dia(largo: float = 6.0, ancho: float = 2.4):
+        from sim import metricas as m
+        return await asyncio.to_thread(m.dia, largo, ancho)
+
     @app.get("/api/kits")
     async def kits():
         import json
@@ -311,7 +316,7 @@ def main(argv=None) -> None:
     a = _args(argv)
     nombres: list[tuple[str, dict]] = []
     if a.clima == "sim":
-        nombres.append(("sim", {"velocidad": a.velocidad}))
+        nombres.append(("sim", {"velocidad": a.velocidad, "tipo": "pabellon", "n": 2}))
 
     elif a.clima == "esp32":
         nombres.append(("esp32", {"puerto": a.puerto}))
