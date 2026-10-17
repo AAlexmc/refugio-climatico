@@ -1,0 +1,38 @@
+{
+  "_nota": "Dimensionado y costes ESTIMADOS para el pitch (fuentes en pitch/cifras.md). 'estimado' = cálculo propio, no presupuesto.",
+  "modulo": {
+    "area_m2": 9.0,
+    "cubierta_m2": 14.0,
+    "aforo": 10,
+    "fv_m2": 4.0,
+    "fv_kwp": 0.8,
+    "bateria_kwh": 2.5,
+    "costes_eur": {
+      "estructura_y_suelo": 2500,
+      "fv": 960,
+      "bateria": 750,
+      "nebulizacion": 300,
+      "plantas_y_bancos": 600,
+      "sensores_esp32": 60
+    }
+  },
+  "por_refugio_eur": {
+    "camara_realsense_y_pc": 900,
+    "ac_split_3_5kw_cada_2_modulos": 800
+  },
+  "materiales_cubierta": [
+    {"id": "vidrio_control_solar", "nombre": "Vidrio doble de control solar", "g": 0.29, "u": 3.2, "tv": 0.18, "eur_m2": 214, "fuente": "generadordeprecios.info LVC016", "verificado": true},
+    {"id": "etfe_3_capas_frit", "nombre": "ETFE cojín 3 capas serigrafiado", "g": 0.35, "u": 1.96, "tv": 0.6, "eur_m2": null, "fuente": "domerama.com guía ETFE (precio: pedir presupuesto)", "verificado": true},
+    {"id": "policarbonato_opal_ir", "nombre": "Policarbonato celular 16 mm opal anti-calor", "g": null, "u": 2.1, "tv": 0.28, "eur_m2": 49, "fuente": "veranda-en-kit.com", "verificado": true},
+    {"id": "vidrio_simple", "nombre": "Vidrio estándar (referencia: efecto invernadero)", "g": 0.88, "u": 5.7, "tv": 0.9, "eur_m2": 60, "fuente": "estimado", "verificado": false}
+  ],
+  "material_por_defecto": "policarbonato_opal_ir",
+  "kits": [
+    {"id": "parada_bus", "nombre": "Parada de bus", "modulos": 2, "min": 1, "max": 4, "disposicion": "linea",
+     "cliente": "Ajuntament / TMB (sustituye marquesina)", "modelo": "venta o concesión con publicidad"},
+    {"id": "terraza_comunitaria", "nombre": "Terraza comunitaria", "modulos": 6, "min": 2, "max": 8, "disposicion": "rejilla",
+     "cliente": "comunidades de vecinos, plazas, patios escolares", "modelo": "alquiler por temporada (jun-sep)"},
+    {"id": "terraza_privada", "nombre": "Terraza privada", "modulos": 1, "min": 1, "max": 3, "disposicion": "linea",
+     "cliente": "bares, restaurantes, particulares", "modelo": "venta + mantenimiento"}
+  ]
+}
