@@ -7,11 +7,13 @@ Proyecto Engihack 2026 (hoy, 17-10-2026, ESEIAAT). Refugio climático modular pa
 
 Si el usuario escribe **«Ordenador N»** (N = 1, 2 o 3; también «soy el ordenador N», «O2», «PC 2»…):
 
-| N | Área |
-|---|---|
-| 1 | Visión RealSense (aforo + desmayo) + maqueta ESP32 |
-| 2 | Control + servidor + simulador térmico/energía + `/api/metricas` |
-| 3 | Gemelo 3D + configurador + pestaña Métricas + app ciudadana + pitch |
+| N | IA | Área |
+|---|---|---|
+| 1 | Claude Code (terminal) | Visión RealSense (aforo + desmayo) + maqueta ESP32 |
+| 2 | Claude Code de escritorio | Control + servidor + simulador térmico/energía + `/api/metricas` |
+| 3 | Gemini CLI | Gemelo 3D + configurador + pestaña Métricas + app ciudadana + pitch |
+
+Guía para las personas: `EMPEZAR.md`.
 
 
 1. `git pull` en `main`.
@@ -22,6 +24,9 @@ Si el usuario escribe **«Ordenador N»** (N = 1, 2 o 3; también «soy el orden
    Cada ordenador tiene 2 partes (A y B, una por persona): usa subagentes en paralelo si puedes.
    Pregunta al humano solo si una decisión destruye datos o cambia un contrato.
 5. Dile al humano en 3 líneas qué vas a hacer y qué hardware/datos necesitarás de él.
+6. Al cerrar cada hito: tests → commit → `git push -u origin oN/<tema>` → PR (`gh pr create --fill`;
+   sin `gh`, da al humano el enlace `https://github.com/AAlexmc/refugio-climatico/compare/oN/<tema>?expand=1`).
+   Merge (squash) solo con el CI en verde. Luego vuelve a `main`, `git pull` y rama nueva para el siguiente hito.
 
 Si el usuario no dice número, pregúntaselo (1–3) y nada más.
 
@@ -56,7 +61,8 @@ Cualquier IA puede proponer mejoras para CUALQUIER área (también la suya):
 ## Comandos
 
 ```bash
-./scripts/instalar.sh                    # venv + dependencias (una vez)
+./scripts/instalar.sh                    # venv + dependencias (una vez). Windows: scripts\instalar.ps1
+# Windows: cambia .venv/bin/python por .\.venv\Scripts\python en todos los comandos
 .venv/bin/python -m pytest -q            # tests
 .venv/bin/python -m servidor.app         # todo simulado -> http://127.0.0.1:8000
 .venv/bin/python -m servidor.app --pose realsense --ver-camara   # visión real

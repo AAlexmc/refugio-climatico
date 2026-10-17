@@ -10,20 +10,16 @@ Detalle: [`docs/reto.md`](docs/reto.md) · Contratos: [`docs/contratos.md`](docs
 
 ## Empezar en tu ordenador
 
-```bash
-git clone https://github.com/AAlexmc/refugio-climatico.git
-cd refugio-climatico
-./scripts/instalar.sh            # Windows: .\scripts\instalar.ps1   (añade --vision / -Vision en el PC de la cámara)
-claude                           # o tu IA (Codex, Gemini, Copilot…: todas leen AGENTS.md)
-```
+👉 **Guía paso a paso: [`EMPEZAR.md`](EMPEZAR.md)**
 
-Y escribe a la IA: **`Ordenador 1`**, **`Ordenador 2`** o **`Ordenador 3`**. Empieza sola su trabajo.
+| Ordenador | IA | Equipo (2 personas) | Ficha |
+|---|---|---|---|
+| 1 | Claude Code (terminal) | Visión RealSense (aforo con etiquetas + desmayo) · maqueta ESP32 | [`equipo/ordenador-1.md`](equipo/ordenador-1.md) |
+| 2 | Claude Code de escritorio | Control + servidor + alertas · simulador térmico, placas FV, batería, `/api/metricas` | [`equipo/ordenador-2.md`](equipo/ordenador-2.md) |
+| 3 | Gemini CLI | Gemelo 3D + configurador modular · pestaña Métricas, app ciudadana, cifras, pitch | [`equipo/ordenador-3.md`](equipo/ordenador-3.md) |
 
-| Ordenador | Equipo (2 personas) | Ficha |
-|---|---|---|
-| 1 | Visión RealSense (aforo con etiquetas + desmayo) · maqueta ESP32 | [`equipo/ordenador-1.md`](equipo/ordenador-1.md) |
-| 2 | Control + servidor + alertas · simulador térmico, placas FV, batería, `/api/metricas` | [`equipo/ordenador-2.md`](equipo/ordenador-2.md) |
-| 3 | Gemelo 3D + configurador modular · pestaña Métricas, app ciudadana, cifras, pitch | [`equipo/ordenador-3.md`](equipo/ordenador-3.md) |
+Resumen: aceptar invitación → `git clone` → `./scripts/instalar.sh` (Windows `scripts\instalar.ps1`) →
+abrir la IA **dentro de la carpeta** → escribir `Ordenador N`.
 
 Las IAs se proponen mejoras entre ellas en [`propuestas/`](propuestas/).
 
