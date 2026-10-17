@@ -16,8 +16,10 @@
   #hud div { display:flex; justify-content:space-between; padding:2px 0; } #hud span { color:var(--mut); } #hud b { font-weight:600; }
   #estado { position:fixed; left:12px; bottom:10px; z-index:5; font-size:13px; padding:4px 10px; border-radius:12px; background:var(--card); }
   #estado.off { color:#ffb347; }
-  #afluencia { position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:8; background:#e9a400; color:#111;
+  #afluencia { position:fixed; left:50%; transform:translateX(-50%); bottom:64px; z-index:8; background:#e9a400; color:#111;
     font-weight:700; padding:8px 16px; border-radius:10px; display:none; max-width:92vw; text-align:center; }
+  #guion { position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:8; background:#1d3a52; color:var(--txt);
+    border:2px solid var(--acc); padding:8px 16px; border-radius:10px; display:none; max-width:80vw; text-align:center; }
   #banner { position:fixed; left:0; right:0; top:0; z-index:9; background:var(--cr); color:#fff; text-align:center; font-weight:700;
     font-size:26px; padding:14px; display:none; animation:pulso 1s infinite; }
   @keyframes pulso { 50% { background:#a00; } }
@@ -48,6 +50,7 @@
   <button id="c_aplicar">Aplicar al refugio real</button>
 </div>
 <div id="afluencia"></div>
+<div id="guion"></div>
 <nav><a href="/">Panel</a><a href="/camara.html">Cámara</a><a href="/metricas.html">Métricas</a><a href="/configurador.html">Configurador</a><a href="/mapa.html">Mapa</a></nav>
 <div id="hud">
   <h2>Refugio <span id="h_ref"></span></h2>
