@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { construirRefugio } from './oasi3d.js';
+import { construirEntorno, LUGAR_POR_KIT } from './entorno.js';
 
 const REFUGIO = new URLSearchParams(location.search).get('refugio') || 'R1';
 const $ = id => document.getElementById(id);
@@ -26,33 +27,16 @@ const sol = new THREE.DirectionalLight(0xfff2d8, 2); sol.position.set(8, 14, 6);
 sol.castShadow = true; sol.shadow.mapSize.set(2048, 2048); sol.shadow.bias = -0.0005;
 Object.assign(sol.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 50 });
 scene.add(sol.target);
-// entorno de calle: acera de baldosa + calzada con línea de bus
-function texBaldosa() {
-  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
-  x.fillStyle = '#b9b5ac'; x.fillRect(0, 0, 128, 128); x.strokeStyle = '#9d988e'; x.lineWidth = 2;
-  for (let i = 0; i <= 128; i += 32) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 128); x.stroke(); x.beginPath(); x.moveTo(0, i); x.lineTo(128, i); x.stroke(); }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(30, 30); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
-const suelo = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: texBaldosa(), roughness: 0.95 }));
-suelo.rotation.x = -Math.PI / 2; suelo.position.y = -0.11; suelo.receiveShadow = true; scene.add(suelo);
-const calzada = new THREE.Mesh(new THREE.PlaneGeometry(120, 7), new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.9 }));
-calzada.rotation.x = -Math.PI / 2; calzada.position.set(0, -0.1, 6.5); calzada.receiveShadow = true; scene.add(calzada);
-const bordillo = new THREE.Mesh(new THREE.BoxGeometry(120, 0.15, 0.25), new THREE.MeshStandardMaterial({ color: 0xd8d4cc }));
-bordillo.position.set(0, -0.04, 2.9); scene.add(bordillo);
-const carril = new THREE.Mesh(new THREE.PlaneGeometry(120, 3), new THREE.MeshStandardMaterial({ color: 0xa8382f, roughness: 0.9 }));
-carril.rotation.x = -Math.PI / 2; carril.position.set(0, -0.095, 4.6); scene.add(carril);
-const rotulo = document.createElement('canvas'); rotulo.width = 256; rotulo.height = 64;
-{ const x = rotulo.getContext('2d'); x.fillStyle = '#fff'; x.font = 'bold 54px system-ui'; x.textAlign = 'center'; x.fillText('BUS', 128, 52); }
-const bus = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(rotulo), transparent: true }));
-bus.rotation.x = -Math.PI / 2; bus.position.set(0, -0.09, 4.6); scene.add(bus);
+let entorno = null;   // bus / plaza / terraza (web/entorno.js)
 
 // estado acumulado: se reaplica si el refugio se reconstruye (evento `modulos`)
 const E = { claraboya: 0, ac: false, nebulizador: false, ventilador: false, temp: null, solar: 0, bateria: 0, noche: false };
 let temp_ext = null, aforo = null, personas = [], desmayo = { activo: false, persona: null };
-let cfg = { kit: 'parada_bus', n: 2, tipo: 'cupula', cubierta: 'vidrio_control_solar', arbol: true }, refugio = null;
+let cfg = { kit: 'parada_bus', n: 2, tipo: 'cupula', cubierta: 'vidrio_control_solar', arbol: true, lugar: new URLSearchParams(location.search).get('lugar') || 'bus' }, refugio = null;
 
 function construir() {
   refugio?.dispose();
+  if (!entorno || entorno.lugar !== cfg.lugar) { entorno?.dispose(); entorno = construirEntorno(scene, cfg.lugar); entorno.lugar = cfg.lugar; }
   refugio = construirRefugio(scene, cfg);
   refugio.set(E); refugio.setPersonas(personas); refugio.setDesmayo(desmayo);
   controls.target.copy(refugio.centro);
@@ -129,7 +113,7 @@ conectar(); hud();
 // --- configuración dentro del gemelo (mismo modelo que /configurador.html) ---
 const AFORO_MOD = 10, KWP_MOD = 0.8, KWH_MOD = 2.5;
 function pintarCfg() {
-  $('c_tipo').value = cfg.tipo; $('c_kit').value = cfg.kit; $('c_cub').value = cfg.cubierta; $('c_arbol').checked = cfg.arbol;
+  $('c_tipo').value = cfg.tipo; $('c_lugar').value = cfg.lugar; $('c_kit').value = cfg.kit; $('c_cub').value = cfg.cubierta; $('c_arbol').checked = cfg.arbol;
   $('c_n').textContent = cfg.n;
   const cup = cfg.tipo === 'cupula';
   for (const id of ['l_kit', 'l_n', 'l_cub', 'l_arb']) $(id).style.display = cup ? '' : 'none';
@@ -138,7 +122,8 @@ function pintarCfg() {
 }
 function cambiar(p) { cfg = { ...cfg, ...p }; cfg.n = Math.max(1, Math.min(8, cfg.n)); construir(); pintarCfg(); }
 $('c_tipo').onchange = e => cambiar({ tipo: e.target.value });
-$('c_kit').onchange = e => cambiar({ kit: e.target.value });
+$('c_kit').onchange = e => cambiar({ kit: e.target.value, lugar: LUGAR_POR_KIT[e.target.value] || cfg.lugar });
+$('c_lugar').onchange = e => cambiar({ lugar: e.target.value });
 $('c_cub').onchange = e => cambiar({ cubierta: e.target.value });
 $('c_arbol').onchange = e => cambiar({ arbol: e.target.checked });
 $('c_menos').onclick = () => cambiar({ n: cfg.n - 1 });

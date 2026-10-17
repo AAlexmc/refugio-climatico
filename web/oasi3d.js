@@ -577,7 +577,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     const mPiel = new THREE.MeshStandardMaterial({ color: PIEL[Math.floor(r() * PIEL.length)], roughness: 0.7 });
     const mPant = new THREE.MeshStandardMaterial({ color: r() < 0.5 ? 0x2b3a55 : 0x55504a, roughness: 0.85 });
     const mPelo = new THREE.MeshStandardMaterial({ color: PELO[Math.floor(r() * PELO.length)], roughness: 0.9 });
-    const alto = 1.6 + r() * 0.25, k = alto / 1.75;
+    const alto = 1.55 + r() * 0.15, k = alto / 1.75;
     const dorso = new THREE.Group();
     const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.42, 4, 12), mat); torso.position.y = 1.2; torso.scale.set(1, 1, 0.7);
     const cuello = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 8), mPiel); cuello.position.y = 1.5;
@@ -605,7 +605,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   }
   let personaBase = null;
   function ponerRig(a) {
-    a.rig = nuevoRig(personaBase, 0.93);   // modelo 1,83 m -> 1,70 m (dorso escala ±7 %)
+    a.rig = nuevoRig(personaBase, 0.82);   // modelo 1,83 m -> ~1,50-1,65 m con la escala del dorso
     a.dorso.add(a.rig.raiz); a.proc.visible = false; a.posado = null;
   }
   cargarGLB('persona').then(base => {
