@@ -10,6 +10,7 @@
 //   dentro de un refugio de n >= 2 módulos (6 m de fondo). x = 0 es el eje del refugio (centrado).
 //   Las posiciones se recortan al interior de la planta para que ningún avatar quede fuera.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export const LADO = 3;          // m, lado del módulo
 const BASE = 1.2;               // altura de los pilares / arranque de la bóveda
@@ -86,6 +87,36 @@ function crearChorro(n, { color, size, opacity, emitir, vida }) {
   };
 }
 
+// Modelos FurniMesh opcionales (web/modelos/CREDITOS.md). Si falla la carga o ?sin_modelos=1,
+// queda la geometría procedural, sin error.
+const MODELOS = {
+  banco: 'modelos/furnimesh/banco_enredaderas.glb',
+  jardin: 'modelos/furnimesh/jardin_vertical.glb',
+  parada: 'modelos/furnimesh/parada.glb',
+};
+const _glb = {};
+function cargarGLB(clave) {
+  if (new URLSearchParams(globalThis.location?.search || '').has('sin_modelos')) return Promise.resolve(null);
+  return (_glb[clave] ??= new Promise(res => {
+    new GLTFLoader().load(MODELOS[clave], gltf => res(gltf.scene), undefined, () => res(null));
+  }).catch(() => null));
+}
+// Clona el modelo, lo orienta (eje largo horizontal -> z, o sin girar), lo escala con Box3 y lo apoya en y = 0.
+// medida: {largo} = dimensión horizontal mayor en m; {alto} = altura en m.
+function colocarModelo(base, { largo, alto, giroY = 0 }) {
+  const m = base.clone(true);
+  const caja = new THREE.Box3().setFromObject(m), sz = caja.getSize(new THREE.Vector3());
+  const k = alto ? alto / sz.y : largo / Math.max(sz.x, sz.z);
+  const pivote = new THREE.Group();
+  m.scale.multiplyScalar(k);
+  const c2 = new THREE.Box3().setFromObject(m), ctr = c2.getCenter(new THREE.Vector3());
+  m.position.set(-ctr.x, -c2.min.y, -ctr.z);
+  const largoEnX = sz.x > sz.z;
+  pivote.add(m);
+  pivote.rotation.y = giroY + (largo && largoEnX ? Math.PI / 2 : 0);
+  return pivote;
+}
+
 function aleatorio(semilla) { let s = semilla; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
 export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
@@ -154,7 +185,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
 
   // --- por módulo: claraboya, banco, jardinera, toberas ---
   const claraboyas = [];
-  const toberasAC = [], toberasNeb = [];
+  const toberasAC = [], toberasNeb = [], bancos = [];
   modulos.forEach((m, i) => {
     const rnd = aleatorio(17 + i * 31);
     // claraboya: panel con bisagra en el borde -x; gira sobre z (eje de la línea)
@@ -170,6 +201,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
     const pata1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.45, 0.06), mEstruct); pata1.position.set(0, 0.22, 0.85);
     const pata2 = pata1.clone(); pata2.position.z = -0.85;
     banco.add(asiento, resp, pata1, pata2); banco.position.set(m.cx + lado * 1.1, 0, m.cz); g.add(banco);
+    bancos.push({ banco, x: m.cx + lado * 1.1, z: m.cz, lado });
     const jard = new THREE.Group();
     const caja = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 1.2), mMacetero); caja.position.y = 0.2;
     const tierra = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.04, 1.14), mTierra); tierra.position.y = 0.41;
@@ -223,6 +255,29 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
     poste.add(tubo, letrero, techo);
     poste.position.set(limites.maxX + 0.6, 0, 0.8); g.add(poste);
   }
+
+  // --- modelos 3D opcionales (asíncronos; 404 -> se queda lo procedural) ---
+  let vivo = true;
+  cargarGLB('banco').then(base => {
+    if (!base || !vivo) return;
+    for (const b of bancos) {
+      const mod = colocarModelo(base, { largo: 2.0, giroY: b.lado > 0 ? 0 : Math.PI });
+      mod.position.set(b.x, 0, b.z); b.banco.visible = false; g.add(mod);
+    }
+  });
+  cargarGLB('jardin').then(base => {
+    if (!base || !vivo) return;
+    for (let c = 0; c < cols; c++) {
+      const L = filasCol[c] * LADO, cx = (c - (cols - 1) / 2) * LADO;
+      const mod = colocarModelo(base, { alto: 1.8 });
+      mod.position.set(cx, 0, -L + 0.45); g.add(mod);
+    }
+  });
+  if (kit === 'parada_bus') cargarGLB('parada').then(base => {
+    if (!base || !vivo) return;
+    const mod = colocarModelo(base, { largo: 2.6 });
+    mod.position.set(limites.maxX + 2.4, 0, -0.6); g.add(mod);
+  });
 
   // --- luz interior (noche) ---
   const luzInt = new THREE.PointLight(0xffc27a, 0, 8); luzInt.position.set(0, TOPE - 0.4, (limites.minZ + limites.maxZ) / 2);
@@ -342,6 +397,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
       }
     },
     dispose() {
+      vivo = false;
       scene.remove(g);
       g.traverse(o => { o.geometry?.dispose();
         const ms = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
