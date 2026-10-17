@@ -63,15 +63,21 @@ function aplicarSol() {
   hemi.intensity = noche ? 0.12 : 0.3 + 0.6 * f;
   cielo.copy(noche ? cNoche : cDia); if (!noche) cielo.lerp(cOcaso, ocaso * 0.7);
   scene.background.copy(cielo); scene.fog.color.copy(cielo);
-  sombra(s);
+  const ahora = performance.now();
+  if (!animando || ahora - tSombra > 400) { tSombra = ahora; sombra(s); }
 }
+let tSombra = 0;
 // % del suelo del refugio a la sombra: rayos desde una rejilla de puntos hacia el sol contra lo opaco
 const rc = new THREE.Raycaster(), _p = new THREE.Vector3();
 function sombra(s) {
   let txt = '—';
   if (s.elev > 0) {
     const L = refugio.limites, opacos = [];
-    refugio.group.traverse(o => { if (o.isMesh && !o.material.transparent && o.visible) opacos.push(o); });
+    // solo lo que da sombra de verdad y es barato de trazar: placas, techos, toldo, estructura.
+    // Fuera: modelos de alta poligonización (hiedra, árboles, bancos), personas con esqueleto,
+    // hojas instanciadas, vidrio y partículas. Con ellos el cálculo bloqueaba el navegador.
+    refugio.group.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && !o.isInstancedMesh && !o.userData.compartido
+      && !o.material.transparent && o.visible && (o.geometry.index?.count ?? o.geometry.attributes.position.count) < 20000) opacos.push(o); });
     let tot = 0, som = 0;
     for (let i = 0; i < 9; i++) for (let k = 0; k < 7; k++) {
       _p.set(L.minX + (i + 0.5) * (L.maxX - L.minX) / 9, 0.3, L.minZ + (k + 0.5) * (L.maxZ - L.minZ) / 7);
