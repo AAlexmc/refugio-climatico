@@ -100,3 +100,12 @@ def test_aforo_sim_acotado_y_obedece_inyeccion():
     assert all(0 <= a.paso() <= 26 for _ in range(500))
     a._oir(Evento("aforo", 12, "panel"))
     assert abs(a.paso() - 12) <= 10
+
+
+def test_api_kits_sirve_catalogo():
+    from fastapi.testclient import TestClient
+    from servidor.app import crear_app
+    with TestClient(crear_app([])) as c:
+        d = c.get("/api/kits").json()
+    assert {k["id"] for k in d["kits"]} == {"parada_bus", "terraza_comunitaria", "terraza_privada"}
+    assert d["material_por_defecto"] in {m["id"] for m in d["materiales_cubierta"]}

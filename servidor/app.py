@@ -102,6 +102,15 @@ def crear_app(nombres: list[tuple[str, dict]] | None = None, *, bus: Bus | None 
     async def estado():
         return bus.estado()
 
+    @app.get("/api/kits")
+    async def kits():
+        import json
+        ruta = Path(__file__).resolve().parent.parent / "datos" / "kits.json"
+        try:
+            return json.loads(ruta.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise HTTPException(500, f"kits: {e}")
+
     @app.post("/api/evento")
     async def evento(d: dict = Body(...)):
         try:
