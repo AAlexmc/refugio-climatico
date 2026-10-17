@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+datos/caida_calibracion.json
+datos/avisos_medicos.jsonl
+*.pt
+*.engine
+captar/esp32_refugio/build/
+captar/esp32_refugio/sdkconfig
+captar/esp32_refugio/sdkconfig.old
+# privacidad: nunca subir capturas de personas
+*.mp4
+*.avi
+capturas/
+.claude/settings.local.json

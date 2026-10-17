@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cámara y gemelo</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0b0f14; color: #e5e7eb;
+               font: 14px system-ui, sans-serif; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 8px;
+         height: 100%; padding: 8px; box-sizing: border-box; }
+  section { display: flex; flex-direction: column; min-height: 0; background: #111827;
+            border: 1px solid #1f2937; border-radius: 8px; overflow: hidden; }
+  h2 { margin: 0; padding: 6px 10px; font-size: 13px; font-weight: 600; color: #9ca3af;
+       border-bottom: 1px solid #1f2937; }
+  .cam { flex: 1; display: grid; place-items: center; min-height: 0; }
+  .cam img { max-width: 100%; max-height: 100%; }
+  .aviso { padding: 16px; color: #fca5a5; text-align: center; }
+  iframe { flex: 1; border: 0; width: 100%; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h2>Cámara (solo depuración, no se guarda) — esqueleto MediaPipe ·
+      <a href="caida.html" style="color:#93c5fd">Entrenar caída</a></h2>
+    <div class="cam">
+      <img id="cam" src="camara.mjpg" alt="Imagen de la cámara con el esqueleto detectado">
+      <div class="aviso" id="aviso" hidden>Sin imagen. Arranca el servidor con
+        <code>--pose realsense --ver-camara</code>.</div>
+    </div>
+  </section>
+  <section>
+    <h2>Gemelo del refugio</h2>
+    <iframe src="/" title="Gemelo del refugio"></iframe>
+  </section>
+</main>
+<script>
+  const img = document.getElementById('cam');
+  img.addEventListener('error', () => {
+    img.hidden = true;
+    document.getElementById('aviso').hidden = false;
+    setTimeout(() => { img.hidden = false; document.getElementById('aviso').hidden = true;
+                       img.src = 'camara.mjpg?' + Date.now(); }, 3000);
+  });
+</script>
+</body>
+</html>

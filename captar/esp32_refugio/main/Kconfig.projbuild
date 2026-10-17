@@ -1,0 +1,106 @@
+menu "Hospital sensor"
+
+    comment "Evitar: GPIO 0/3/45/46 (strapping), 19/20 (USB), 26-37 (flash/PSRAM octal)"
+
+    config HS_PERIODO_MS
+        int "Periodo de publicacion (ms)"
+        default 1000
+        range 200 60000
+
+    menu "DHT (temperatura y humedad)"
+        config HS_DHT_ENABLE
+            bool "Habilitar DHT"
+            default y
+
+        choice HS_DHT_TIPO
+            prompt "Modelo"
+            depends on HS_DHT_ENABLE
+            default HS_DHT_11
+            config HS_DHT_11
+                bool "DHT11"
+            config HS_DHT_22
+                bool "DHT22 / AM2302"
+        endchoice
+
+        config HS_DHT_GPIO
+            int "GPIO del DHT (datos)"
+            depends on HS_DHT_ENABLE
+            default 4
+            range 1 48
+    endmenu
+
+    menu "LDR (luz, ADC1)"
+        config HS_LDR_ENABLE
+            bool "Habilitar LDR"
+            default y
+
+        config HS_LDR_GPIO
+            int "GPIO del LDR (debe ser ADC1: GPIO 1..10)"
+            depends on HS_LDR_ENABLE
+            default 1
+            range 1 10
+
+        config HS_LDR_INVERTIR
+            bool "Invertir (mas luz = menos tension)"
+            depends on HS_LDR_ENABLE
+            default n
+    endmenu
+
+    menu "PIR (presencia)"
+        config HS_PIR_ENABLE
+            bool "Habilitar PIR"
+            default y
+
+        config HS_PIR_GPIO
+            int "GPIO del PIR (salida digital)"
+            depends on HS_PIR_ENABLE
+            default 5
+            range 1 48
+    endmenu
+
+    menu "Rele"
+        config HS_RELE_ENABLE
+            bool "Habilitar rele"
+            default y
+
+        config HS_RELE_GPIO
+            int "GPIO del rele"
+            depends on HS_RELE_ENABLE
+            default 6
+            range 1 48
+
+        config HS_RELE_ACTIVO_BAJO
+            bool "Modulo activo en nivel bajo"
+            depends on HS_RELE_ENABLE
+            default n
+    endmenu
+
+    menu "Buzzer"
+        config HS_BUZZER_ENABLE
+            bool "Habilitar buzzer"
+            default y
+
+        config HS_BUZZER_GPIO
+            int "GPIO del buzzer"
+            depends on HS_BUZZER_ENABLE
+            default 7
+            range 1 48
+
+        choice HS_BUZZER_MODO
+            prompt "Tipo de buzzer"
+            depends on HS_BUZZER_ENABLE
+            default HS_BUZZER_ACTIVO
+            config HS_BUZZER_ACTIVO
+                bool "Activo (nivel alto = suena)"
+            config HS_BUZZER_PASIVO
+                bool "Pasivo (tono PWM por LEDC)"
+        endchoice
+
+        config HS_BUZZER_FREQ_HZ
+            int "Frecuencia del tono pasivo (Hz)"
+            depends on HS_BUZZER_ENABLE && HS_BUZZER_PASIVO
+            default 2000
+            range 100 10000
+    endmenu
+
+endmenu

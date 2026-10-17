@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OASI — refugio climático</title>
+<style>
+  :root { --bg:#0f1714; --card:#17221d; --txt:#e6efe9; --mut:#8aa397; --ok:#3ecf8e; --av:#f5b942; --cr:#ff5c5c; --acc:#5cc8ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--txt); }
+  header { display:flex; gap:16px; align-items:center; padding:12px 16px; border-bottom:1px solid #24342c; flex-wrap:wrap; }
+  header h1 { font-size:20px; margin:0; } header nav a { color:var(--acc); margin-right:12px; }
+  main { padding:16px; display:grid; gap:12px; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); }
+  .c { background:var(--card); border-radius:10px; padding:12px; }
+  .c b { display:block; font-size:26px; margin-top:4px; } .c small { color:var(--mut); }
+  #alertas { padding:0 16px 16px; } .al { padding:8px 12px; border-radius:8px; margin-top:6px; background:var(--card); }
+  .al.aviso { border-left:4px solid var(--av); } .al.critico { border-left:4px solid var(--cr); background:#3a1717; }
+  #ctrl { padding:0 16px 16px; display:flex; gap:8px; flex-wrap:wrap; }
+  button { background:#24342c; color:var(--txt); border:1px solid #35503f; border-radius:8px; padding:8px 12px; cursor:pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OASI · refugio climático R1</h1>
+  <nav><a href="/">Panel</a><a href="/caida.html">Entrenar caída</a><a href="/camara.html">Cámara</a>
+  <!-- Ordenador 3: gemelo.html · configurador.html · metricas.html · mapa.html --></nav>
+  <small id="ws">conectando…</small>
+</header>
+<main id="tiles"></main>
+<div id="ctrl">
+  <button data-ev='{"tipo":"aforo","valor":25,"fuente":"panel"}'>Simular lleno (25)</button>
+  <button data-ev='{"tipo":"desmayo","valor":{"activo":true},"fuente":"panel"}'>Simular desmayo</button>
+  <button data-ev='{"tipo":"desmayo","valor":{"activo":false},"fuente":"panel"}'>Resolver desmayo</button>
+  <button data-ev='{"tipo":"lluvia","valor":true,"fuente":"panel"}'>Lluvia</button>
+  <button data-ev='{"tipo":"lluvia","valor":false,"fuente":"panel"}'>Sin lluvia</button>
+</div>
+<section id="alertas"></section>
+<script>
+// Panel mínimo de integración: pinta cualquier tipo del contrato (docs/contratos.md).
+const TIT = { temp:"Interior", temp_ext:"Exterior", humedad:"HR interior", indice_calor:"Índice calor",
+  aforo:"Aforo", claraboya:"Claraboya", ac:"Aire acond.", nebulizador:"Nebulizador", radiacion:"Sol",
+  potencia:"Consumo", solar:"Placas FV", bateria:"Batería", red:"Red", co2:"CO₂", lluvia:"Lluvia" };
+const OCULTOS = new Set(["pose","personas","comando","estado_fuente","modo_pose","guion","alerta"]);
+const tiles = document.getElementById("tiles"), alertas = new Map();
+function fmt(ev){ const v = ev.valor;
+  if (typeof v === "boolean") return v ? "sí" : "no";
+  if (ev.tipo === "claraboya") return Math.round(v*100) + " %";
+  if (typeof v === "number") return (Math.round(v*10)/10) + " " + (ev.unidad||"");
+  return JSON.stringify(v); }
+function tile(ev){ let el = document.getElementById("t_"+ev.tipo);
+  if (!el){ el = document.createElement("div"); el.className="c"; el.id="t_"+ev.tipo;
+    el.innerHTML = `<small>${TIT[ev.tipo]||ev.tipo}</small><b></b><small class="f"></small>`; tiles.appendChild(el); }
+  el.querySelector("b").textContent = fmt(ev); el.querySelector(".f").textContent = ev.fuente; }
+function pintarAlertas(){ const s = document.getElementById("alertas"); s.innerHTML = "";
+  for (const a of alertas.values()) if (a.nivel !== "info") {
+    const d = document.createElement("div"); d.className = "al "+a.nivel; d.textContent = a.mensaje; s.appendChild(d); } }
+function conectar(){ const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => document.getElementById("ws").textContent = "en vivo";
+  ws.onclose = () => { document.getElementById("ws").textContent = "reconectando…"; setTimeout(conectar, 1000); };
+  ws.onmessage = m => { const ev = JSON.parse(m.data);
+    if (ev.tipo === "alerta"){ alertas.set(ev.valor.codigo, ev.valor); pintarAlertas(); }
+    else if (!OCULTOS.has(ev.tipo)) tile(ev); }; }
+document.querySelectorAll("button[data-ev]").forEach(b => b.onclick = () =>
+  fetch("/api/evento", {method:"POST", headers:{"Content-Type":"application/json"}, body:b.dataset.ev}));
+conectar();
+</script>
+</body>
+</html>

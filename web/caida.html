@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrenar caída</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; background: #0b0f14; color: #e5e7eb; font: 14px system-ui, sans-serif; }
+  header { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #1f2937; }
+  header a { color: #93c5fd; text-decoration: none; }
+  header h1 { margin: 0; font-size: 16px; flex: 1; }
+  main { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 8px; padding: 8px; }
+  section { background: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 10px; }
+  h2 { margin: 0 0 8px; font-size: 13px; color: #9ca3af; font-weight: 600; }
+  .cam { display: grid; place-items: center; min-height: 200px; }
+  .cam img { max-width: 100%; }
+  .aviso { color: #fca5a5; text-align: center; padding: 12px; }
+  .vivo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; text-align: center; }
+  .vivo div { background: #0b0f14; border-radius: 6px; padding: 6px; }
+  .vivo b { display: block; font-size: 22px; }
+  .vivo small { color: #9ca3af; }
+  #estado { font-size: 20px; font-weight: 700; padding: 6px; border-radius: 6px; text-align: center; margin-top: 8px; }
+  .de_pie { background: #064e3b; } .suelo { background: #78350f; } .caida { background: #7f1d1d; }
+  .sin_persona { background: #374151; }
+  button { background: #1f2937; color: #e5e7eb; border: 1px solid #374151; border-radius: 6px;
+           padding: 8px 12px; font: inherit; cursor: pointer; margin: 2px 4px 2px 0; }
+  button:hover:not(:disabled) { border-color: #93c5fd; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.prim { background: #1d4ed8; border-color: #1d4ed8; }
+  ol { padding-left: 18px; } li { margin: 10px 0; }
+  .res { color: #86efac; margin-left: 4px; } .err { color: #fca5a5; margin-top: 6px; }
+  .nota { color: #fcd34d; margin-top: 6px; }
+  table { border-collapse: collapse; width: 100%; } td { padding: 2px 6px; border-bottom: 1px solid #1f2937; }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Entrenar caída</h1>
+  <span id="modo"></span>
+  <a href="/">Panel</a> <a href="camara.html">Cámara + gemelo</a>
+</header>
+<main>
+  <section>
+    <h2>Cámara (esqueleto) y estado en vivo</h2>
+    <div class="cam">
+      <img id="cam" src="camara.mjpg" alt="Imagen de la cámara con el esqueleto">
+      <div class="aviso" id="aviso" hidden>Sin imagen. Arranca con <code>--pose realsense --ver-camara</code>.</div>
+    </div>
+    <div id="estado" class="sin_persona">—</div>
+    <div class="vivo">
+      <div><b id="v-cadera">—</b><small>cadera z (m)</small></div>
+      <div><b id="v-angulo">—</b><small>ángulo torso (°)</small></div>
+      <div><b id="v-edad">—</b><small>último dato (s)</small></div>
+    </div>
+    <h2 style="margin-top:12px">Umbrales actuales</h2>
+    <table>
+      <tr><td>Cadera «en el suelo» por debajo de</td><td id="u-suelo">—</td></tr>
+      <tr><td>Cadera «levantado» por encima de</td><td id="u-alto">—</td></tr>
+      <tr><td>Torso «horizontal» por encima de</td><td id="u-ang">—</td></tr>
+      <tr><td>Exige descenso rápido</td><td id="u-desc">—</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>Entrenamiento guiado</h2>
+    <div id="msg-modo" class="nota" hidden></div>
+    <ol>
+      <li>Ponte <b>de pie</b> frente a la cámara, con hombros y caderas visibles.
+        <br><button id="b-pie" class="prim">Grabar de pie (3 s)</button><span id="r-pie" class="res"></span></li>
+      <li>Túmbate <b>en el suelo</b> donde quieres detectar la caída.
+        <br><button id="b-suelo" class="prim">Grabar en el suelo (3 s)</button><span id="r-suelo" class="res"></span></li>
+      <li>Calcula los umbrales a partir de las dos medidas.
+        <br><button id="b-calc" disabled>Calcular</button></li>
+      <li>Guarda y aplica (sin reiniciar).
+        <br><button id="b-guardar" class="prim" disabled>Guardar y aplicar</button>
+        <button id="b-defecto">Volver a valores por defecto</button></li>
+    </ol>
+    <label><input type="checkbox" id="demo"> Modo demo: no exigir descenso rápido
+      (basta estar 1 s en el suelo; por defecto apagado)</label>
+    <div id="calc" class="res"></div>
+    <div id="nota" class="nota"></div>
+    <div id="err" class="err"></div>
+  </section>
+</main>
+<script src="caida.js"></script>
+</body>
+</html>
