@@ -67,4 +67,6 @@ negocio, la **pestaña de Métricas**, el mapa ciudadano y el pitch.
 - **Accesibilidad**: textos grandes, contraste, catalán/español/inglés en la app ciudadana.
 
 ## Estado
-- (actualiza aquí al cerrar cada hito)
+- 17-10 ~15:30 · **EN CURSO desde el Ordenador 1 (Claude)**: 3A·H1 gemelo 3D + 3A·H2 configurador,
+  3B·H1 cifras + `datos/kits.json`, 3B·H2 pestaña Métricas. **Gemini (O3): empieza por 3B·H3
+  (`web/mapa.html` + `pitch/guion.md`) y los Extras O3**; revisa los PRs `o3/*` que vayan entrando.
