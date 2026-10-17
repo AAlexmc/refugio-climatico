@@ -5,7 +5,9 @@ cerrado sobre un Bus en memoria (síncrono, sin asyncio). Determinista.
 """
 from __future__ import annotations
 
+import json
 from functools import lru_cache
+from pathlib import Path
 
 from control.reglas import MotorReglas
 from nucleo.bus import Bus
@@ -33,13 +35,19 @@ def _r(x: float, n: int = 1) -> float:
     return round(float(x), n)
 
 
-def _simular() -> dict:
+def _simular(dias: int = DIAS, cubierta: str | None = None, modulos: int | None = None) -> dict:
     bus = Bus()
     m = MotorReglas(bus, avisar=lambda r, msg: None)
     bus.oyente(m.procesar)
     oasi = clima.FuenteClimaSim(inicio_hora=0.0)
     bus.oyente(oasi._oir)
-    cup = clima.FuenteClimaSim(inicio_hora=0.0)   # sin reglas: claraboya cerrada, nada encendido
+    cup = clima.FuenteClimaSim(inicio_hora=0.0)
+    if cubierta is not None or modulos is not None:
+        ev = {"n": modulos or clima.MODULOS_BASE}
+        if cubierta:
+            ev["cubierta"] = cubierta
+        for f in (oasi, cup):
+            f._modulos(ev)   # sin reglas: claraboya cerrada, nada encendido
     ref = oasi.refugio
     t, calle, t_oasi, t_cup, solar, cons, bat, afo = ([] for _ in range(8))
     n_sub = round(PASO_S / CTRL_S)
@@ -47,12 +55,12 @@ def _simular() -> dict:
     ries_calle = ries_oasi = 0                   # subpasos con índice de calor > umbral
     noche_w = noche_n = 0
     pico = 0.0
-    for i in range(int(DIAS * 86400 / PASO_S)):
+    for i in range(int(dias * 86400 / PASO_S)):
         sol_m = cons_m = 0.0
         for j in range(n_sub):
             seg = i * PASO_S + j * CTRL_S
             h = (seg / 3600.0) % 24
-            oasi.offset_t_ext = cup.offset_t_ext = OFFSET_DIA[int(seg // 86400)]
+            oasi.offset_t_ext = cup.offset_t_ext = OFFSET_DIA[min(int(seg // 86400), len(OFFSET_DIA) - 1)]
             a = aforo_en(h)
             cup.aforo = a
             bus.publicar(Evento("aforo", a, "sim", ref))   # oasi lo recibe por el bus
@@ -81,12 +89,12 @@ def _simular() -> dict:
         bat.append(d["bateria"])
         afo.append(a)
     kwh_sol, kwh_cons, kwh_red = (x / 3.6e6 for x in (kwh_sol, kwh_cons, kwh_red))
-    cons_noche = noche_w / noche_n if noche_n else kwh_cons * 1000.0 / (DIAS * 24)
-    usable_kwh = clima.BAT_KWH * (100.0 - clima.BAT_RESERVA) / 100.0
+    cons_noche = noche_w / noche_n if noche_n else kwh_cons * 1000.0 / (dias * 24)
+    usable_kwh = oasi.bat_kwh * (100.0 - clima.BAT_RESERVA) / 100.0
     h_sub = CTRL_S / 3600.0
     ries_calle *= h_sub
     ries_oasi *= h_sub
-    return {
+    res = {
         "series": {"t": t, "temp_calle": [_r(x, 2) for x in calle], "temp_oasi": [_r(x, 2) for x in t_oasi],
                    "temp_cupula": [_r(x, 2) for x in t_cup], "solar": [int(x) for x in solar],
                    "consumo": [int(x) for x in cons], "bateria": [_r(x) for x in bat], "aforo": afo},
@@ -96,10 +104,36 @@ def _simular() -> dict:
             "kwh_solares": _r(kwh_sol),
             "pct_autoconsumo": _r(100.0 * (1.0 - kwh_red / kwh_cons) if kwh_cons else 0.0),
             "autonomia_h": _r(usable_kwh * 1000.0 / cons_noche if cons_noche else 0.0),
-            "coste_eur_dia": _r(kwh_red / DIAS * EUR_KWH, 2),
+            "coste_eur_dia": _r(kwh_red / dias * EUR_KWH, 2),
             "co2_kg_evitado": _r(kwh_sol * KG_CO2_KWH, 2),
         },
     }
+    if dias == DIAS and cubierta is None and modulos is None:   # escenario principal: añade los extras
+        res["resumen"].update(_extras())
+    return res
+
+
+DIAS_EXTRA = 2
+
+
+def _extras() -> dict:
+    """Temp. máx. OASI por cubierta (+ vidrio simple) y energía/autonomía por kit."""
+    ids = list(clima.KITS["materiales"]) or []
+    mats = {}
+    for mid in ids:
+        r = _simular(DIAS_EXTRA, cubierta=mid)
+        mats[mid] = _r(max(r["series"]["temp_oasi"]), 2)
+    kits = {}
+    try:
+        lista = json.loads((Path(clima.__file__).resolve().parent.parent / "datos" / "kits.json").read_text("utf-8"))["kits"]
+    except Exception:
+        lista = []
+    for k in lista:
+        if k.get("tipo", "cupula") != "cupula":
+            continue
+        r = _simular(DIAS_EXTRA, modulos=int(k["modulos"]))["resumen"]
+        kits[k["id"]] = {"kwh_solares_dia": _r(r["kwh_solares"] / DIAS_EXTRA, 2), "autonomia_h": r["autonomia_h"]}
+    return {"materiales": mats, "kits": kits}
 
 
 @lru_cache(maxsize=1)
