@@ -23,7 +23,56 @@ from graficos_metricas import C, simular_dia  # noqa: E402
 from sim import fisica_pabellon as fp  # noqa: E402
 from sim.metricas import PASO_S, UMBRAL_RIESGO, dia, escenario  # noqa: E402
 
-SALIDA = RAIZ / "pitch" / "diapositivas"
+IDIOMA = "ca" if "--idioma" in sys.argv and sys.argv[sys.argv.index("--idioma") + 1] == "ca" else "es"
+SALIDA = RAIZ / "pitch" / ("diapositivas_ca" if IDIOMA == "ca" else "diapositivas")
+
+# Traducción al catalán: se aplica a TODOS los textos de la figura justo antes de guardarla
+# (titulares, ejes, leyendas, etiquetas y pie). Orden: frases largas primero, palabras sueltas al final.
+CA = [
+    ("Simulación física OASI · ola de calor tipo Barcelona (julio) · datos de entrada supuestos, no medidos",
+     "Simulació física OASI · onada de calor tipus Barcelona (juliol) · dades d'entrada suposades, no mesurades"),
+    ("Pabellón Venturi 6 × 2,4 m en una parada de bus · día tipo de ola de calor (máx. 36 °C)",
+     "Pavelló Venturi 6 × 2,4 m en una parada d'autobús · dia tipus d'onada de calor (màx. 36 °C)"),
+    ("más fresco que la calle\nen la hora punta", "més fresc que al carrer\nen l'hora punta"),
+    ("de calor peligroso evitadas\ncada día (índice > 32 °C)", "de calor perillosa evitades\ncada dia (índex > 32 °C)"),
+    ("de la energía sale\nde sus placas solares", "de l'energia surt\nde les seves plaques solars"),
+    ("de luz de la red al día\n(todo con sol y batería)", "de llum de la xarxa al dia\n(tot amb sol i bateria)"),
+    ("de autonomía nocturna\ncon batería", "d'autonomia nocturna\namb bateria"),
+    ("solares al día", "solars al dia"),
+    ("OASI en cifras", "OASI en xifres"),
+    ("Temperatura a lo largo del día · el mismo pabellón cerrado y sin control llegaría a más de 50 °C",
+     "Temperatura al llarg del dia · el mateix pavelló tancat i sense control arribaria a més de 50 °C"),
+    (" °C menos que en la calle", " °C menys que al carrer"), ("Dentro, ", "A dins, "),
+    ("Cerrado sin control", "Tancat sense control"),
+    (" horas de calor peligroso evitadas al día", " hores de calor perillosa evitades al dia"),
+    ("Horas con índice de calor NOAA > ", "Hores amb índex de calor NOAA > "), ("(temperatura + humedad)", "(temperatura + humitat)"),
+    ("índice de calor (°C)", "índex de calor (°C)"), ("horas de riesgo / día", "hores de risc / dia"),
+    (" % solar: el refugio se paga su propio aire", " % solar: el refugi es paga el seu propi aire"),
+    (" kWh de placas al día · la batería cubre la noche · ", " kWh de plaques al dia · la bateria cobreix la nit · "),
+    ("De noche se refresca solo, sin gastar energía", "De nit es refresca sol, sense gastar energia"),
+    ("Efecto Venturi + tiro térmico: ", "Efecte Venturi + tir tèrmic: "), (" h de ventilación natural, hasta ", " h de ventilació natural, fins a "),
+    ("aire renovado (m³/h)", "aire renovat (m³/h)"),
+    ("Ventilación natural\n(cima abierta)", "Ventilació natural\n(cim obert)"),
+    ("Calor fuera: cima cerrada,\naire acondicionado solar", "Calor a fora: cim tancat,\naire condicionat solar"),
+    ("Cima abierta", "Cim obert"),
+    ("Crece con la ciudad: de 4 a 12 m de largo", "Creix amb la ciutat: de 4 a 12 m de llargada"),
+    ("y de 2,4 a 4,8 m de ancho · cada tamaño simulado con la misma física", "i de 2,4 a 4,8 m d'amplada · cada mida simulada amb la mateixa física"),
+    ("Energía solar (kWh/día)", "Energia solar (kWh/dia)"), ("Autonomía de batería (h)", "Autonomia de bateria (h)"),
+    ("Aguanta la ola de calor entera", "Aguanta tota l'onada de calor"),
+    (" % solar · al final la batería toca la reserva:", " % solar · al final la bateria toca la reserva:"),
+    (" €/día de red", " €/dia de xarxa"), (" € de red", " € de xarxa"),
+    ("Placas solares", "Plaques solars"), ("Consumo", "Consum"), ("batería", "bateria"), ("Batería", "Bateria"),
+    ("Plazas", "Places"), ("largo (m)", "llargada (m)"), ("ancho ", "amplada "), ("riesgo", "risc"), ("Calle", "Carrer"),
+    ("días", "dies"), ("día", "dia"), ("cada día", "cada dia"),
+]
+
+
+def t(texto: str) -> str:
+    if IDIOMA != "ca" or not texto:
+        return texto
+    for es_, ca_ in CA:
+        texto = texto.replace(es_.replace("\\n", "\n"), ca_.replace("\\n", "\n"))
+    return texto
 FONDO, TINTA, SUAVE = "#fcfcfb", "#1b1b19", "#6b6a63"
 def es(x, d=1):
     """Número con coma decimal y punto de miles (formato español)."""
@@ -47,6 +96,9 @@ def lienzo(titular: str, sub: str = ""):
 
 
 def guardar(fig, nombre):
+    import matplotlib.text as mtext
+    for txt in fig.findobj(mtext.Text):          # traduce todo lo escrito en la figura
+        txt.set_text(t(txt.get_text()))
     fig.savefig(SALIDA / f"{nombre}.png", facecolor=FONDO)
     plt.close(fig)
 
@@ -102,7 +154,7 @@ def d3_riesgo(D, R):
     ax.text(0.3, UMBRAL_RIESGO + 0.5, "riesgo", color=C["rojo"], fontsize=15, fontweight="bold")
     ax.set_ylabel("índice de calor (°C)"); horas(ax); ax.legend(frameon=False, loc="upper left")
     bx = fig.add_axes([0.70, 0.12, 0.26, 0.66])
-    b = bx.bar(["Calle", "OASI"], [hc, hi], color=[C["naranja"], C["azul"]], width=0.62)
+    b = bx.bar([t("Calle"), "OASI"], [hc, hi], color=[C["naranja"], C["azul"]], width=0.62)
     bx.bar_label(b, labels=[f"{hc:.0f} h", f"{hi:.0f} h"], fontsize=24, fontweight="bold", padding=6)
     bx.set_ylim(0, max(hc, 1) * 1.25); bx.set_yticks([]); bx.grid(False); bx.spines["left"].set_visible(False)
     bx.set_title("horas de riesgo / día", color=SUAVE, fontsize=15)
@@ -129,15 +181,15 @@ def d5_ventilacion(D):
     q = D["q"]; h_v = (q > 0).sum() * PASO_S / 3600
     fig = lienzo("De noche se refresca solo, sin gastar energía",
                  f"Efecto Venturi + tiro térmico: {h_v:.0f} h de ventilación natural, hasta {es(q.max(), 0)} m³/h")
-    ax = fig.add_axes([0.07, 0.30, 0.86, 0.48])
+    ax = fig.add_axes([0.12, 0.30, 0.81, 0.48])
     ax.fill_between(D["h"], 0, q, color=C["aqua"], alpha=0.35, step="pre"); ax.plot(D["h"], q, color=C["aqua"], lw=3, drawstyle="steps-pre")
     ax.set_ylabel("aire renovado (m³/h)"); horas(ax); ax.set_xticklabels([])
     ax.text(4.2, q.max() * 0.55, "Ventilación natural\n(cima abierta)", color=C["aqua"], fontweight="bold", ha="center", fontsize=17)
     ax.text(16.5, q.max() * 0.55, "Calor fuera: cima cerrada,\naire acondicionado solar", color=C["naranja"], fontweight="bold", ha="center", fontsize=17)
-    bx = fig.add_axes([0.07, 0.12, 0.86, 0.13])
+    bx = fig.add_axes([0.12, 0.12, 0.81, 0.13])
     est = np.vstack([D["apertura"] > 0, D["ac"]]).astype(float)
     bx.imshow(est, aspect="auto", extent=(0, 24, 1.5, -0.5), cmap="Greens", vmin=0, vmax=1.3, interpolation="nearest")
-    bx.set_yticks([0, 1]); bx.set_yticklabels(["Cima abierta", "AC"], fontsize=14); bx.grid(False); horas(bx)
+    bx.set_yticks([0, 1]); bx.set_yticklabels([t("Cima abierta"), "AC"], fontsize=14); bx.grid(False); horas(bx)
     guardar(fig, "05_ventilacion_natural")
 
 
