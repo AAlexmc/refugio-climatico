@@ -53,8 +53,9 @@ Para ver el servidor de otro PC: arrancarlo con `--host 0.0.0.0` y abrir `http:/
 ## 5. Serie ESP32 ↔ PC (`captar/serial_bridge.py`)
 ESP32 → PC, una línea JSON por segundo: `{"temp": 27.4, "humedad": 48.0, "luz": 0.6, ...}`
 (claves = tipos de evento). PC → ESP32: `{"<destino>": <valor>}` + `\n`
-(hoy `{"rele": true}`, `{"buzzer": 300}`; O1·B añade `claraboya`, `ac`, `nebulizador`, `ventilador`
-en `CAMPOS`/`_payload` de `captar/serial_bridge.py` y en el firmware).
+(`{"rele": true}`, `{"buzzer": 300}`, `{"claraboya": 0.6}`, `{"ac": true}`, `{"nebulizador": false}`,
+`{"ventilador": true}`, `{"alerta": true}` = LED rojo; el puente lo manda solo con la alerta `desmayo`).
+El ESP32 devuelve en su línea `claraboya`, `ac`, `nebulizador`, `ventilador` (estado real).
 
 ## 6. Propiedad de carpetas
 | Carpeta / fichero | Dueño |

@@ -198,3 +198,31 @@ async def test_cancelacion_limpia(bus):
     await parar(t)
     assert ser.cerrado
     assert bus._oyentes == []
+
+
+async def test_maqueta_refugio_comandos_y_estado(bus):
+    evs, ser = grabar(bus), FakeSerial()
+    _, t = await arrancar(bus, ser)
+    await esperar(lambda: bus.ultimo.get(("R1", "estado_fuente")))
+    for d, v in [("claraboya", 0.6), ("ac", True), ("nebulizador", False), ("ventilador", True),
+                 ("claraboya", 1.5), ("ac", "si")]:
+        bus.publicar(Evento("comando", {"destino": d, "valor": v}, "reglas"))
+    assert [json.loads(b) for b in ser.escrito] == [
+        {"claraboya": 0.6}, {"ac": True}, {"nebulizador": False}, {"ventilador": True}]
+    ser.meter('{"temp": 30.1, "claraboya": 0.6, "ac": true, "nebulizador": false}\n')
+    await esperar(lambda: medidas(evs).get("claraboya") == 0.6)
+    assert medidas(evs)["ac"] is True and medidas(evs)["nebulizador"] is False
+    await parar(t)
+
+
+async def test_alerta_desmayo_enciende_led_y_pita(bus):
+    from nucleo.evento import alerta
+    ser = FakeSerial()
+    _, t = await arrancar(bus, ser)
+    await esperar(lambda: bus.ultimo.get(("R1", "estado_fuente")))
+    bus.publicar(alerta("critico", "desmayo", "x"))
+    bus.publicar(alerta("aviso", "lleno", "y"))           # otras alertas no tocan la maqueta
+    bus.publicar(alerta("info", "desmayo", "z"))
+    assert [json.loads(b) for b in ser.escrito] == [
+        {"alerta": True}, {"buzzer": serial_bridge.BUZZER_MS_DEFECTO}, {"alerta": False}]
+    await parar(t)

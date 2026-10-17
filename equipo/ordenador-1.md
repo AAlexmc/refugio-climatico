@@ -82,4 +82,9 @@ buzzer, protocolo JSON por USB — ver su README) y `captar/serial_bridge.py` (p
   con id de la persona más cercana. `vision/sim_vision.py`: gente simulada con etiquetas (bancos,
   autobús cada ~90 s, botón de aforo del panel) + Persona 1 que cae y se desmaya. El conmutador
   cámara/sim también filtra aforo/personas/desmayo. Modelo: `modelos/yolo26n.pt` (no se sube).
+- 17-10 · 1B·H1 + H2 (software) hechos (PR `o1/maqueta`): firmware `refugio_sensor` compila
+  (ESP-IDF 6.1): servo claraboya GPIO15, AC 16, nebulizador 17, ventilador 18, LED alerta 8 parpadeante;
+  puente serie manda/lee claraboya/ac/nebulizador/ventilador y enciende LED+pitido con desmayo crítico.
+  Guía de montaje: `hardware/maqueta.md`.
+- Falta 1B: inventario real del hardware del equipo, flashear y montar la maqueta.
 - Falta: probar con la RealSense conectada (USB 3), ajustar PROF_MAX_M al sitio real.
