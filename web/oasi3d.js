@@ -61,7 +61,7 @@ function colorTemp(t) {
 }
 
 // Partículas con vida; `emitir(i, pos, vel)` rellena una nueva partícula.
-function crearChorro(n, { color, size, opacity, emitir, vida }) {
+function crearChorro(n, { color, size, opacity, emitir, vida, grav = 0 }) {
   const pos = new Float32Array(n * 3).fill(-100), vel = new Float32Array(n * 3), life = new Float32Array(n);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -80,8 +80,9 @@ function crearChorro(n, { color, size, opacity, emitir, vida }) {
         }
         life[i] -= dt;
         if (life[i] <= 0) { pos[i * 3 + 1] = -100; continue; }
+        vel[i * 3 + 1] -= grav * dt;
         pos[i * 3] += vel[i * 3] * dt; pos[i * 3 + 1] += vel[i * 3 + 1] * dt; pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
-        if (pos[i * 3 + 1] < 0.1) life[i] = 0;
+        if (pos[i * 3 + 1] < (grav ? 0.75 : 0.1) && (grav ? vel[i * 3 + 1] < 0 : true)) life[i] = 0;
       }
       geo.attributes.position.needsUpdate = true;
     },
@@ -186,7 +187,10 @@ const CUPULAS = {   // material de la cubierta (datos/kits.json § materiales_cu
   policarbonato_opal_ir: { color: 0xf4f1e6, transmission: 0.45, roughness: 0.55, att: 0xffffff },
 };
 export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conArbol = true,
-                                          cubierta = 'vidrio_control_solar', etiquetas = true } = {}) {
+                                          cubierta = 'vidrio_control_solar', etiquetas = true, tipo = 'cupula' } = {}) {
+  // tipo: 'cupula' (módulos con bóveda) | 'arbol_solar' | 'jardin' (jardín vertical + pérgola FV) | 'banco_solar'
+  const esCupula = tipo === 'cupula';
+  if (!esCupula) n = 1;
   const cup = CUPULAS[cubierta] || CUPULAS.vidrio_control_solar;
   n = Math.max(1, Math.min(8, Math.round(n)));
   const g = new THREE.Group(); g.name = 'refugio';
@@ -198,7 +202,8 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     modulos.push({ cx: (col - (cols - 1) / 2) * LADO, cz: -(fila + 0.5) * LADO, col });
   }
   const filasCol = Array.from({ length: cols }, (_, c) => modulos.filter(m => m.col === c).length);
-  const limites = { minX: -cols * R, maxX: cols * R, minZ: -filas * LADO, maxZ: 0 };
+  const limites = esCupula ? { minX: -cols * R, maxX: cols * R, minZ: -filas * LADO, maxZ: 0 }
+                           : { minX: -3, maxX: 3, minZ: -6, maxZ: 0 };
 
   // --- materiales ---
   const mVidrio = new THREE.MeshPhysicalMaterial({ color: cup.color, transmission: cup.transmission, roughness: cup.roughness,
@@ -216,7 +221,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     side: THREE.DoubleSide });
 
   // --- suelo ---
-  for (let c = 0; c < cols; c++) {
+  for (let c = 0; c < (esCupula ? cols : 0); c++) {
     const L = filasCol[c] * LADO, cx = (c - (cols - 1) / 2) * LADO;
     const suelo = new THREE.Mesh(new THREE.BoxGeometry(LADO, 0.1, L), mSuelo);
     suelo.position.set(cx, -0.05, -L / 2); suelo.receiveShadow = true; g.add(suelo);
@@ -254,7 +259,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   // --- por módulo: claraboya, banco, jardinera, toberas ---
   const claraboyas = [];
   const toberasAC = [], toberasNeb = [], bancos = [];
-  modulos.forEach((m, i) => {
+  (esCupula ? modulos : []).forEach((m, i) => {
     const rnd = aleatorio(17 + i * 31);
     // claraboya: panel con bisagra en el borde -x; gira sobre z (eje de la línea)
     const piv = new THREE.Group(); piv.position.set(m.cx - 0.45, TOPE + 0.05, m.cz);
@@ -311,7 +316,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   bat.position.set(limites.minX - 0.45, 0, m0.cz); g.add(bat);
 
   // --- marquesina + poste de parada de bus ---
-  if (kit === 'parada_bus') {
+  if (esCupula && kit === 'parada_bus') {
     const poste = new THREE.Group();
     const tubo = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.9, 10), mEstruct); tubo.position.y = 1.45;
     const cv = document.createElement('canvas'); cv.width = cv.height = 128;
@@ -333,7 +338,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
       mod.position.set(b.x, 0, b.z); b.banco.visible = false; g.add(mod);
     }
   });
-  cargarGLB('jardin').then(base => {
+  if (esCupula) cargarGLB('jardin').then(base => {
     if (!base || !vivo) return;
     for (let c = 0; c < cols; c++) {
       const L = filasCol[c] * LADO, cx = (c - (cols - 1) / 2) * LADO;
@@ -342,8 +347,10 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     }
   });
   // --- árbol solar: el árbol del modelo (o tronco procedural) con una copa de placas FV encima ---
-  const arbol = new THREE.Group(); arbol.visible = conArbol;
-  arbol.position.set(limites.maxX + 3.2, 0, limites.minZ + 1.5); g.add(arbol);
+  const verArbol = tipo === 'arbol_solar' || (esCupula && conArbol);
+  const arbol = new THREE.Group(); arbol.visible = verArbol;
+  if (tipo === 'arbol_solar') arbol.position.set(0, 0, -3); else arbol.position.set(limites.maxX + 3.2, 0, limites.minZ + 1.5);
+  g.add(arbol);
   const ALTO_ARBOL = 3.6;
   const troncoProc = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.3, ALTO_ARBOL, 12), new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.9 }));
   troncoProc.position.y = ALTO_ARBOL / 2; arbol.add(troncoProc);
@@ -357,7 +364,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     const barra = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.8), mEstruct); barra.position.set(0, -0.05, 0.9);
     brazo.add(pan, barra); copaFV.add(brazo);
   }
-  if (conArbol) cargarGLB('parada').then(base => {
+  if (verArbol) cargarGLB('parada').then(base => {
     if (!base || !vivo) return;
     const mod = colocarModelo(base, { alto: ALTO_ARBOL + 0.2 });
     mod.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -366,6 +373,71 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     copaFV.position.y = caja.max.y - arbol.position.y + 0.35;           // placas por ENCIMA de la copa
     copaFV.scale.setScalar(Math.max(1, Math.max(tam.x, tam.z) / 4.4));   // cubren todo el ancho de la copa
   });
+
+  // --- tipos sin bóveda: plataforma, pérgolas FV, jardines, banco de piedra ---
+  const extrasUpd = [];
+  function pergolaFV(x, z, w, d, h) {
+    const pg = new THREE.Group(); pg.position.set(x, 0, z);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const pil = new THREE.Mesh(new THREE.BoxGeometry(0.1, h, 0.1), mEstruct); pil.position.set(sx * (w / 2 - 0.1), h / 2, sz * (d / 2 - 0.1)); pg.add(pil);
+    }
+    const mat = new THREE.MeshStandardMaterial({ map: texFV(Math.round(w), Math.round(d)), roughness: 0.3, metalness: 0.5, emissive: 0x3a7bff, emissiveIntensity: 0 });
+    mFV.push(mat);
+    const techo = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, d), mat); techo.position.y = h; techo.rotation.x = -0.08; pg.add(techo);
+    const marco = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.05, d + 0.1), mEstruct); marco.position.y = h - 0.06; marco.rotation.x = -0.08; pg.add(marco);
+    g.add(pg);
+    for (let k = 0; k < 4; k++) toberasNeb.push({ x: x + (k / 3 - 0.5) * (w - 0.6), z, y: h - 0.15 });
+    return pg;
+  }
+  if (!esCupula) {
+    const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 0.1, 48), mSuelo); plat.position.set(0, -0.05, -3); plat.receiveShadow = true; g.add(plat);
+  }
+  if (tipo === 'arbol_solar') {
+    // el árbol nebuliza agua desde el borde de la copa (más fresco bajo las placas)
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; toberasNeb.push({ x: Math.cos(a) * 1.6, z: -3 + Math.sin(a) * 1.6, y: ALTO_ARBOL - 0.2 }); }
+  }
+  if (tipo === 'jardin') {
+    pergolaFV(0, -3, 5.4, 3.6, 2.8);
+    const sitios = [[-2.1, -4.6, 0.3], [0, -5.0, 0], [2.1, -4.6, -0.3]];
+    cargarGLB('jardin').then(base => {
+      if (!base || !vivo) return;
+      for (const [x, z, r] of sitios) { const m = colocarModelo(base, { alto: 2.3, giroY: r }); m.position.set(x, 0, z); g.add(m); }
+    });
+    for (const [x, z] of sitios) {   // macetero procedural (también sin GLB)
+      const mac = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.45, 0.4, 16), mMacetero); mac.position.set(x, 0.2, z + 0.7); g.add(mac);
+      for (let k = 0; k < 3; k++) { const pl = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), mVerde[k]); pl.position.set(x + (k - 1) * 0.22, 0.55, z + 0.7); g.add(pl); }
+    }
+    cargarGLB('banco').then(base => {
+      if (!base || !vivo) return;
+      for (const sx of [-1.3, 1.3]) { const m = colocarModelo(base, { largo: 2.0, giroY: 0 }); m.position.set(sx, 0, -2.4); m.rotation.y = Math.PI / 2; g.add(m); }
+    });
+  }
+  if (tipo === 'banco_solar') {
+    pergolaFV(0, -3, 4.2, 2.4, 2.6);
+    const bancoProc = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.45, 0.6), new THREE.MeshStandardMaterial({ color: 0xa9a59c, roughness: 0.9 }));
+    bancoProc.position.set(0, 0.225, -3); g.add(bancoProc);
+    cargarGLB('banco').then(base => {
+      if (!base || !vivo) return;
+      const m = colocarModelo(base, { largo: 3.4 }); m.position.set(0, 0, -3); m.rotation.y = Math.PI / 2; bancoProc.visible = false; g.add(m);
+    });
+  }
+  // fuente de agua potable (procedural; los modelos de 3D Warehouse exigen cuenta)
+  function fuente(x, z) {
+    const f = new THREE.Group(); f.position.set(x, 0, z);
+    const mAcero = new THREE.MeshStandardMaterial({ color: 0xb8c0c4, metalness: 0.85, roughness: 0.3 });
+    const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.9, 16), mAcero); pie.position.y = 0.45;
+    const pila = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.2, 0.12, 24), mAcero); pila.position.y = 0.94;
+    const agua = new THREE.Mesh(new THREE.CircleGeometry(0.24, 24), new THREE.MeshStandardMaterial({ color: 0x5ab4e8, roughness: 0.1, metalness: 0.2 }));
+    agua.rotation.x = -Math.PI / 2; agua.position.y = 0.995;
+    const caño = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.18, 8), mAcero); caño.position.set(0, 1.07, -0.12);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 20), mAcero); base.position.y = 0.02;
+    f.add(pie, pila, agua, caño, base); g.add(f);
+    const ch = crearChorro(60, { color: 0x8fd0ff, size: 0.05, opacity: 0.9, vida: 0.8, grav: 9.8, emitir(p, v, i) {
+      p[i] = x; p[i + 1] = 1.16; p[i + 2] = z - 0.12;
+      v[i] = (Math.random() - 0.5) * 0.05; v[i + 1] = 1.1 + Math.random() * 0.15; v[i + 2] = 0.55 + Math.random() * 0.08; } });
+    g.add(ch.pts); extrasUpd.push(dt => ch.update(dt, true));
+  }
+  if (esCupula) fuente(limites.minX - 0.9, -1.6); else fuente(2.7, -0.8);
 
   // --- luz interior (noche) ---
   const luzInt = new THREE.PointLight(0xffc27a, 0, 8); luzInt.position.set(0, TOPE - 0.4, (limites.minZ + limites.maxZ) / 2);
@@ -378,7 +450,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     v[i] = t.dir * (0.4 + Math.random() * 0.3); v[i + 1] = -0.15 - Math.random() * 0.15; v[i + 2] = (Math.random() - 0.5) * 0.1; } });
   const chorroNeb = crearChorro(70 * n, { color: 0xffffff, size: 0.3, opacity: 0.35, vida: 3, emitir(p, v, i) {
     const t = toberasNeb[Math.floor(Math.random() * toberasNeb.length)];
-    p[i] = t.x + (Math.random() - 0.5) * 0.8; p[i + 1] = TOPE - 0.25; p[i + 2] = t.z + (Math.random() - 0.5) * 1.6;
+    p[i] = t.x + (Math.random() - 0.5) * 0.8; p[i + 1] = t.y ?? TOPE - 0.25; p[i + 2] = t.z + (Math.random() - 0.5) * 1.6;
     v[i] = (Math.random() - 0.5) * 0.15; v[i + 1] = -0.25 - Math.random() * 0.15; v[i + 2] = (Math.random() - 0.5) * 0.15; } });
   g.add(chorroAC.pts, chorroNeb.pts);
 
@@ -488,6 +560,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
       if (est.ventilador || est.ac) aspas.rotation.x += dt * 14;
       chorroAC.update(dt, !!est.ac);
       chorroNeb.update(dt, !!est.nebulizador);
+      for (const f of extrasUpd) f(dt);
       // personas
       let objetivoDesm = null;
       if (desmayo.activo) {

@@ -54,6 +54,12 @@
   #lado { display: flex; flex-direction: column; }
   #vista3d { position: relative; margin: 10px 12px 0; height: 260px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: #9ec9e6; }
   #vista3d canvas { width: 100% !important; height: 100% !important; display: block; }
+  #vista3d.grande { position: fixed; inset: 0; margin: 0; height: 100vh !important; border-radius: 0; z-index: 50; }
+  #cerrar3d { display: none; position: absolute; top: 12px; right: 12px; z-index: 3; font-size: 1.1rem; padding: 8px 14px; border-radius: 10px; border: 0; background: #0b1f2acc; color: #fff; cursor: pointer; }
+  #info3d { display: none; position: absolute; left: 12px; top: 12px; z-index: 3; background: #0b1f2acc; color: #fff; padding: 10px 14px; border-radius: 10px; max-width: 70vw; font-size: .95rem; }
+  #vista3d.grande #cerrar3d, #vista3d.grande #info3d { display: block; }
+  #ampliar3d { position: absolute; right: 8px; bottom: 8px; z-index: 3; border: 0; border-radius: 8px; padding: 6px 10px; background: #0b1f2acc; color: #fff; cursor: pointer; }
+  #vista3d.grande #ampliar3d { display: none; }
   #v3dmsg { position: absolute; inset: 0; display: grid; place-items: center; color: #234; font-size: .85rem; }
   @media (min-width: 860px) {
     #layout { display: grid; grid-template-columns: minmax(360px, 1fr) minmax(380px, 1.1fr); gap: 4px; align-items: start; }
@@ -105,7 +111,9 @@
   <g class="tu" id="tu"><circle r="6"/><text y="-10" id="t_tu">Tú</text></g>
 </svg>
 <aside id="lado">
-  <div id="vista3d"><span id="v3dmsg">Cargando vista 3D…</span></div>
+  <div id="vista3d"><span id="v3dmsg">Cargando vista 3D…</span>
+    <button id="cerrar3d" aria-label="Cerrar">✕ Volver al mapa</button><div id="info3d"></div>
+    <button id="ampliar3d" aria-label="Pantalla completa">Ampliar</button></div>
   <section id="ficha"></section>
 </aside>
 </div>
@@ -144,11 +152,13 @@ const R = [
   {id:"R1", nombre:"Pl. Catalunya",   x:165, y:205, kit:"parada_bus", n:2, arbol:true,  cubierta:"vidrio_control_solar", real:true, aforo:null, temp:null, ext:null, alerta:null},
   {id:"S2", nombre:"Sagrada Família", x:205, y:105, kit:"terraza_comunitaria", n:6, arbol:true, cubierta:"etfe_3_capas_frit", real:false, aforo:47, temp:27.4, ext:35.8},
   {id:"S3", nombre:"Glòries",         x:238, y:142, kit:"parada_bus", n:3, arbol:false, cubierta:"policarbonato_opal_ir", real:false, aforo:30, temp:28.1, ext:36.4},
-  {id:"S4", nombre:"Sants Estació",   x:72,  y:222, kit:"parada_bus", n:1, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:6,  temp:26.2, ext:35.1},
+  {id:"S4", nombre:"Sants Estació",   x:72,  y:222, kit:"parada_bus", tipo:"arbol_solar", n:1, arbol:true, cubierta:"vidrio_control_solar", real:false, aforo:6,  temp:29.0, ext:35.1},
   {id:"S5", nombre:"Pl. Espanya",     x:98,  y:268, kit:"terraza_comunitaria", n:4, arbol:true, cubierta:"policarbonato_opal_ir", real:false, aforo:21, temp:26.8, ext:35.5},
-  {id:"S6", nombre:"Fabra i Puig",    x:252, y:62,  kit:"terraza_privada", n:1, arbol:false, cubierta:"etfe_3_capas_frit", real:false, aforo:8,  temp:27.9, ext:36.0}
+  {id:"S6", nombre:"Fabra i Puig",    x:252, y:62,  kit:"terraza_privada", tipo:"jardin", n:1, arbol:false, cubierta:"etfe_3_capas_frit", real:false, aforo:8,  temp:28.4, ext:36.0},
+  {id:"S7", nombre:"Pl. del Sol",     x:150, y:122, kit:"terraza_privada", tipo:"banco_solar", n:1, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:4,  temp:30.2, ext:35.9}
 ];
 const KIT_NOMBRE = {parada_bus:"Parada de bus", terraza_comunitaria:"Terraza comunitaria", terraza_privada:"Terraza privada"};
+const TIPO_NOMBRE = {arbol_solar:"Árbol solar con nebulización", jardin:"Jardín vertical con pérgola solar", banco_solar:"Banco de piedra con placas solares"};
 const CUB_NOMBRE = {vidrio_control_solar:"vidrio control solar", etfe_3_capas_frit:"ETFE serigrafiado", policarbonato_opal_ir:"policarbonato opal"};
 let lang = (navigator.language || "es").slice(0, 2); if (!I18N[lang]) lang = "es";
 let tu = {x:135, y:185}, sel = new URLSearchParams(location.search).get("sel") || "R1", rutaA = null, wsOk = false;
@@ -179,7 +189,7 @@ function dibujar(){
     g.setAttribute("role", "button"); g.setAttribute("tabindex", "0");
     g.setAttribute("aria-label", `${r.nombre}: ${t(e)}`);
     g.innerHTML = `<circle class="ring" r="19"/><circle class="c" r="12"/><text class="glifo" y="5">${GLIFO[e]}</text><text class="nombre" y="26">${r.nombre}</text><circle r="22" fill="transparent"/>`;
-    g.addEventListener("click", ev => { ev.stopPropagation(); sel = r.id; rutaA = null; dibujar(); });
+    g.addEventListener("click", ev => { ev.stopPropagation(); sel = r.id; rutaA = null; window.__abrir3d = true; dibujar(); });
     g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { sel = r.id; rutaA = null; dibujar(); } });
     pins.appendChild(g);
   }
@@ -194,7 +204,7 @@ function ficha(){
   const dif = (r.temp != null && r.ext != null) ? r.ext - r.temp : null;
   el.innerHTML = `<h2>${r.nombre} <span class="tag ${r.real ? "real" : "sim"}">${r.real ? "● " + t("real") : t("sim")}</span></h2>
     <span class="estado ${e}">${GLIFO[e]} ${t(e)}</span>
-    <p style="margin:8px 0 0;color:var(--text-2);font-size:.85rem">${KIT_NOMBRE[r.kit]} · ${r.n} módulo${r.n > 1 ? "s" : ""} · ${CUB_NOMBRE[r.cubierta]}${r.arbol ? " · árbol solar" : ""}</p>
+    <p style="margin:8px 0 0;color:var(--text-2);font-size:.85rem">${r.tipo ? TIPO_NOMBRE[r.tipo] : `${KIT_NOMBRE[r.kit]} · ${r.n} módulo${r.n > 1 ? "s" : ""} · ${CUB_NOMBRE[r.cubierta]}${r.arbol ? " · árbol solar" : ""}`} · fuente de agua</p>
     ${r.alerta ? `<div class="alerta">⚠ ${t("alerta")}: ${r.alerta}</div>` : ""}
     <dl>
       <dt>${t("dentro")}</dt><dd>${fmt(r.temp)}</dd>
@@ -285,15 +295,24 @@ function gente(r) {
   return out;
 }
 function mostrar(r) {
-  if (!r || (actual && actual.id === r.id)) return;
+  if (!r || (actual && actual.id === r.id && actual.aforo === r.aforo)) return;
   actual = r; refugio?.dispose();
-  refugio = construirRefugio(scene, { kit: r.kit, n: r.n, arbol: r.arbol, cubierta: r.cubierta, etiquetas: false });
-  refugio.set({ temp: r.temp, solar: 900 * r.n, bateria: 70, ac: (r.temp ?? 0) > 27, claraboya: 0 });
+  refugio = construirRefugio(scene, { kit: r.kit, n: r.n, arbol: r.arbol, cubierta: r.cubierta, tipo: r.tipo || 'cupula', etiquetas: false });
+  refugio.set({ temp: r.temp, solar: 900 * r.n, bateria: 70, ac: !r.tipo && (r.temp ?? 0) > 27, claraboya: 0, nebulizador: !!r.tipo });
   refugio.setPersonas(gente(r));
   const c = refugio.centro, d = Math.max(9, r.n * 2.6 + 6) * (r.arbol ? 1.15 : 1);
   controls.target.copy(c); camera.position.set(c.x + d * 0.85, d * 0.55, c.z + d * 0.75); controls.autoRotate = true;
 }
-addEventListener('refugio-sel', e => mostrar(e.detail));
+function grande(on) { cont.classList.toggle('grande', on); requestAnimationFrame(ajustar); }
+document.getElementById('cerrar3d').onclick = () => grande(false);
+document.getElementById('ampliar3d').onclick = () => grande(true);
+addEventListener('keydown', e => { if (e.key === 'Escape') grande(false); });
+addEventListener('refugio-sel', e => {
+  const r = e.detail; mostrar(r);
+  document.getElementById('info3d').innerHTML = `<b>${r.nombre}</b><br>${document.querySelector('#ficha p')?.textContent || ''}<br>` +
+    `Dentro ${r.temp ?? '—'} °C · calle ${r.ext ?? '—'} °C · ${r.aforo ?? '—'} personas`;
+  if (window.__abrir3d) { window.__abrir3d = false; grande(true); }
+});
 if (window.__refSel) mostrar(window.__refSel);
 // R1 en vivo: sus personas y actuadores vienen del WebSocket
 (function ws() {

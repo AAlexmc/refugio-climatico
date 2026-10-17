@@ -21,11 +21,32 @@
   #banner { position:fixed; left:0; right:0; top:0; z-index:9; background:var(--cr); color:#fff; text-align:center; font-weight:700;
     font-size:26px; padding:14px; display:none; animation:pulso 1s infinite; }
   @keyframes pulso { 50% { background:#a00; } }
+  #cfg { position:fixed; left:12px; top:96px; z-index:6; width:230px; background:var(--card); border-radius:10px; padding:10px 12px; font-size:13px;
+    display:flex; flex-direction:column; gap:7px; }
+  #cfg label { display:flex; justify-content:space-between; align-items:center; gap:6px; color:var(--mut); }
+  #cfg select { background:#0f1714; color:var(--txt); border:1px solid #35503f; border-radius:6px; padding:3px; max-width:140px; }
+  #cfg button { background:#24342c; color:var(--txt); border:1px solid #35503f; border-radius:6px; padding:5px 9px; cursor:pointer; }
+  #cfg .nbox { display:flex; align-items:center; gap:8px; } #cfg .nbox b { color:var(--txt); min-width:14px; text-align:center; }
+  #cfg small { color:var(--mut); }
+  @media (max-width:500px) { #cfg { top:auto; bottom:52px; width:calc(100vw - 24px); } }
   @media (max-width:500px) { #hud { width:150px; font-size:12px; } }
 </style>
 </head>
 <body>
 <div id="banner"></div>
+<div id="cfg">
+  <b>Configurar refugio</b>
+  <label>Tipo <select id="c_tipo"><option value="cupula">Cúpula modular</option><option value="arbol_solar">Árbol solar + agua</option>
+    <option value="jardin">Jardín vertical + pérgola FV</option><option value="banco_solar">Banco de piedra + placas</option></select></label>
+  <label id="l_kit">Kit <select id="c_kit"><option value="parada_bus">Parada de bus</option><option value="terraza_comunitaria">Terraza comunitaria</option>
+    <option value="terraza_privada">Terraza privada</option></select></label>
+  <label id="l_n">Módulos <span class="nbox"><button id="c_menos">−</button><b id="c_n">2</b><button id="c_mas">+</button></span></label>
+  <label id="l_cub">Cubierta <select id="c_cub"><option value="vidrio_control_solar">Vidrio control solar</option><option value="etfe_3_capas_frit">ETFE serigrafiado</option>
+    <option value="policarbonato_opal_ir">Policarbonato opal</option></select></label>
+  <label id="l_arb"><input type="checkbox" id="c_arbol" checked> Árbol solar al lado</label>
+  <small id="c_info"></small>
+  <button id="c_aplicar">Aplicar al refugio real</button>
+</div>
 <div id="afluencia"></div>
 <nav><a href="/">Panel</a><a href="/camara.html">Cámara</a><a href="/metricas.html">Métricas</a><a href="/configurador.html">Configurador</a><a href="/mapa.html">Mapa</a></nav>
 <div id="hud">
