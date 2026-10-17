@@ -16,7 +16,7 @@ PASOS = [
     ("Llega el autobús", "Aforo 12 personas: la cámara cuenta cuánta gente hay dentro.", 8),
     ("Refuerzo térmico", "Más gente, más calor: las reglas encienden ventilador y aire acondicionado.", 8),
     ("Desmayo", "Una persona se queda inmóvil en el suelo: la visión detecta el desmayo.", 10),
-    ("Aviso al 061", "Alerta crítica enviada al 061 y a la familia desde el panel y el móvil.", 8),
+    ("Aviso al 061", "Alerta crítica enviada al 061 con la ubicación del refugio y el nº de personas dentro.", 8),
     ("Atendido", "Los sanitarios atienden a la persona: la alerta se resuelve.", 6),
     ("Resultado", "Resultados medidos del refugio: ver /metricas.html", 10),
 ]
