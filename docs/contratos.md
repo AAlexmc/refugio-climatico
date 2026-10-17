@@ -14,7 +14,7 @@ Lo que une a los 3 ordenadores. Cambios: PR pequeño `contrato: …` (ver AGENTS
 Tipos clave por área:
 | Área | Publica | Consume |
 |---|---|---|
-| Visión (O1·A) | `aforo`, `personas`, `pose`, `caida`, `desmayo` | — |
+| Visión (O1·A) | `aforo`, `personas` (`{id,x,y,etiqueta,estado}`), `pose`, `caida`, `desmayo` | `caida` (forzar en sim), `aforo` (fijar en sim) |
 | Maqueta ESP32 (O1·B) | lo mismo que el sim pero medido (`fuente: esp32`) + estado actuadores | `comando` |
 | Control (O2·A) | `comando`, `alerta`, `indice_calor` | todo lo medido |
 | Simulador (O2·B) | `temp`, `temp_ext`, `humedad*`, `radiacion`, `solar`, `bateria`, `red`, `potencia`, estado actuadores | `comando`, `aforo`, `modulos` |

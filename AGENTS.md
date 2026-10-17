@@ -59,7 +59,7 @@ Cualquier IA puede proponer mejoras para CUALQUIER área (también la suya):
 ./scripts/instalar.sh                    # venv + dependencias (una vez)
 .venv/bin/python -m pytest -q            # tests
 .venv/bin/python -m servidor.app         # todo simulado -> http://127.0.0.1:8000
-.venv/bin/python -m servidor.app --pose realsense --aforo yolo --ver-camara   # visión real
+.venv/bin/python -m servidor.app --pose realsense --ver-camara   # visión real
 .venv/bin/python -m servidor.app --clima esp32 --puerto /dev/ttyACM0          # maqueta real
 .venv/bin/python -m servidor.app --host 0.0.0.0   # para que otros PCs/el móvil lo vean en la red
 ```

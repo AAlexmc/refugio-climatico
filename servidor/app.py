@@ -245,8 +245,8 @@ def _args(argv=None):
     p = argparse.ArgumentParser(description="OASI refugio climático — servidor del panel")
     p.add_argument("--clima", choices=["sim", "esp32", "off"], default="sim",
                    help="temp/humedad/luz/red: simulador o ESP32 real")
-    p.add_argument("--aforo", choices=["aforo_sim", "yolo", "off"], default="aforo_sim",
-                   help="conteo de personas: simulado o cámara (vision/aforo.py)")
+    p.add_argument("--sin-aforo", action="store_true",
+                   help="con --pose realsense|webcam: no contar personas con YOLO (solo pose)")
     p.add_argument("--puerto", default="/dev/ttyACM0", help="puerto serie del ESP32")
     p.add_argument("--pose", choices=["pose_sim", "realsense", "webcam", "off"], default="pose_sim")
     p.add_argument("--modo-inicial", choices=["camara", "sim"], default="camara",
@@ -267,12 +267,11 @@ def main(argv=None) -> None:
     nombres: list[tuple[str, dict]] = []
     if a.clima == "sim":
         nombres.append(("sim", {"velocidad": a.velocidad}))
-    if a.aforo != "off":
-        nombres.append((a.aforo, {}))
+
     elif a.clima == "esp32":
         nombres.append(("esp32", {"puerto": a.puerto}))
     if a.pose in ("realsense", "webcam"):
-        nombres.append((a.pose, {"camara": a.pose, "ver": a.ver_camara}))
+        nombres.append((a.pose, {"camara": a.pose, "ver": a.ver_camara, "contar": not a.sin_aforo}))
         nombres.append(("pose_sim", {}))   # respaldo / modo sin visión (conmutador)
         if a.ver_camara:
             from vision.vista import VISTA

@@ -31,7 +31,7 @@ Las IAs se proponen mejoras entre ellas en [`propuestas/`](propuestas/).
 
 ```bash
 .venv/bin/python -m servidor.app                    # todo simulado -> http://127.0.0.1:8000
-.venv/bin/python -m servidor.app --pose realsense --aforo yolo --ver-camara --clima esp32 --host 0.0.0.0
+.venv/bin/python -m servidor.app --pose realsense --ver-camara --clima esp32 --host 0.0.0.0
 ```
 
 ## Qué ya funciona (base reutilizada de nuestro proyecto anterior)
