@@ -191,6 +191,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
                                           cubierta = 'vidrio_control_solar', etiquetas = true, tipo = 'cupula' } = {}) {
   // tipo: 'cupula' (módulos con bóveda) | 'marquesina' (parada bioclimática 6 x 2,2 m) | 'arbol_solar' | 'jardin' | 'banco_solar'
   const esCupula = tipo === 'cupula';
+  const LP = tipo === 'pabellon' ? 2 * (Math.max(1, Math.min(3, Math.round(n))) + 1) : 0;   // largo pabellón 4/6/8 m
   if (!esCupula) n = 1;
   const cup = CUPULAS[cubierta] || CUPULAS.vidrio_control_solar;
   n = Math.max(1, Math.min(8, Math.round(n)));
@@ -205,6 +206,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   const filasCol = Array.from({ length: cols }, (_, c) => modulos.filter(m => m.col === c).length);
   const limites = esCupula ? { minX: -cols * R, maxX: cols * R, minZ: -filas * LADO, maxZ: 0 }
                            : tipo === 'marquesina' ? { minX: -2.9, maxX: 2.9, minZ: -2.1, maxZ: 0 }
+                           : tipo === 'pabellon' ? { minX: -LP / 2, maxX: LP / 2, minZ: -2.6, maxZ: -0.2 }
                            : { minX: -3, maxX: 3, minZ: -6, maxZ: 0 };
 
   // --- materiales ---
@@ -306,7 +308,8 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   luzAC.position.set(0.26, 0.52, 0.3);
   ac.add(aspas, luzAC);
   ac.scale.setScalar(0.8);
-  if (tipo === 'marquesina') ac.position.set(4.3, 0, -1.9); else ac.position.set(limites.maxX + 0.35, 0, limites.minZ + 0.8);
+  if (tipo === 'marquesina') ac.position.set(4.3, 0, -1.9);
+  else if (tipo === 'pabellon') ac.position.set(LP / 2 + 1.2, 0, -2.6); else ac.position.set(limites.maxX + 0.35, 0, limites.minZ + 0.8);
   g.add(ac);
 
   const bat = new THREE.Group();
@@ -422,7 +425,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     for (let k = 0; k < 4; k++) toberasNeb.push({ x: x + (k / 3 - 0.5) * (w - 0.6), z, y: h - 0.15 });
     return pg;
   }
-  if (!esCupula && tipo !== 'marquesina') {
+  if (!esCupula && tipo !== 'marquesina' && tipo !== 'pabellon') {
     const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 0.1, 48), mSuelo); plat.position.set(0, -0.05, -3); plat.receiveShadow = true; g.add(plat);
   }
   if (tipo === 'arbol_solar') {
@@ -546,7 +549,128 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
       fov.material.color.set(hay ? 0x2eff7a : 0xffcc33); fov.material.opacity = hay ? 0.14 : 0.07;
     });
   }
-  if (esCupula) fuente(limites.minX - 0.9, -1.6); else if (tipo === 'marquesina') fuente(-3.9, -0.4); else fuente(2.7, -0.8);
+  if (tipo === 'pabellon') {
+    // Módulo bioclimático universal (diseño del equipo): pabellón de vidrio y enredaderas con techo
+    // semicircular, tobera Venturi en la cima, rejillas bajas/altas, extractores y puertas ENTRADA/SALIDA.
+    const L = LP, Z = -1.4, mm = Math.round(L / 2);
+    const bx = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      o.position.set(x, y, z + Z); o.castShadow = o.receiveShadow = true; g.add(o); return o; };
+    const cil = (r, h, m, x, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 12), m);
+      o.position.set(x, y, z + Z); o.castShadow = true; g.add(o); return o; };
+    const mCristal = new THREE.MeshPhysicalMaterial({ color: 0xbfe8f0, transparent: true, opacity: 0.26, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false });
+    const mPuerta = new THREE.MeshPhysicalMaterial({ color: 0x9fd8e6, transparent: true, opacity: 0.4, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false });
+    const mMadera = new THREE.MeshStandardMaterial({ color: 0x9a6b3f, roughness: 0.7 });
+    const rotulo = (txt, bg) => { const c = document.createElement('canvas'); c.width = 256; c.height = 72; const x = c.getContext('2d');
+      x.fillStyle = bg; x.fillRect(0, 0, 256, 72); x.fillStyle = '#fff'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.fillText(txt, 128, 48); return new THREE.CanvasTexture(c); };
+    bx(L + 3, 0.15, 5, new THREE.MeshStandardMaterial({ color: 0xb9bdb8, roughness: 0.9 }), 0, -0.04, 0.3);
+    bx(L, 0.04, 2.4, new THREE.MeshStandardMaterial({ color: 0x8a8f86 }), 0, 0.05, 0);
+    for (let k = 0; k <= mm; k++) [-1.2, 1.2].forEach(z => bx(0.08, 2.75, 0.08, mEstruct, -L / 2 + k * L / mm, 1.375, z));
+    // techo semicircular con abertura en la cima
+    const Rr = 1.35, s0 = 0.11, mTecho = new THREE.MeshStandardMaterial({ color: 0xe6ecee, metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide });
+    const casco = (a, b, r, mat, len, x) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len || L + 0.3, 64, 1, true, a, b - a), mat);
+      o.rotation.z = Math.PI / 2; o.position.set(x || 0, 2.75, Z); o.castShadow = o.receiveShadow = true; g.add(o); return o; };
+    casco(0, Math.PI / 2 - s0, Rr, mTecho); casco(Math.PI / 2 + s0, Math.PI, Rr, mTecho);
+    for (let k = 0; k <= mm; k++) { const ar = new THREE.Mesh(new THREE.TorusGeometry(Rr, 0.025, 6, 32, Math.PI), mEstruct);
+      ar.rotation.y = Math.PI / 2; ar.position.set(-L / 2 + k * L / mm, 2.75, Z); g.add(ar); }
+    [-1, 1].forEach(sx => { const e = new THREE.Mesh(new THREE.CircleGeometry(Rr, 32, 0, Math.PI), mCristal);
+      e.rotation.y = sx * Math.PI / 2; e.position.set(sx * L / 2, 2.75, Z); g.add(e); });
+    const deflector = (zc, yc, len, ang) => { const o = bx(L - 0.1, 0.02, len, mEstruct, 0, yc, zc); o.rotation.x = ang; };
+    deflector(0.385, 3.73, 0.78, 0.92); deflector(-0.385, 3.73, 0.78, -0.92); deflector(0.345, 4.25, 0.52, -0.63); deflector(-0.345, 4.25, 0.52, 0.63);
+    [-1.2, 1.2].forEach(z => bx(L, 2.2, 0.03, mCristal, 0, 1.4, z));
+    // extremos con puerta (ENTRADA a -x, SALIDA a +x)
+    const puertas = [];
+    [-1, 1].forEach(sx => { const x = sx * L / 2;
+      [-0.875, 0.875].forEach(z => bx(0.03, 2.2, 0.65, mCristal, x, 1.4, z));
+      bx(0.03, 0.35, 1.1, mCristal, x, 2.325, 0); bx(0.05, 0.05, 1.2, mEstruct, x, 2.15, 0);
+      [-0.55, 0.55].forEach(z => bx(0.05, 2.15, 0.05, mEstruct, x, 1.075, z));
+      const hoja = new THREE.Group(); hoja.position.set(x + sx * 0.05, 0, Z); g.add(hoja);
+      const vid = new THREE.Mesh(new THREE.BoxGeometry(0.03, 2.1, 1.08), mPuerta); vid.position.y = 1.08; hoja.add(vid);
+      [-0.53, 0.53].forEach(z => { const b = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.1, 0.04), mEstruct); b.position.set(0, 1.08, z); hoja.add(b); });
+      puertas.push({ m: hoja, x, o: 0 });
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.27), new THREE.MeshBasicMaterial({ map: rotulo(sx < 0 ? 'ENTRADA' : 'SALIDA', sx < 0 ? '#1f8f4e' : '#c2371f') }));
+      sg.position.set(x + sx * 0.07, 2.62, Z); sg.rotation.y = sx * Math.PI / 2; g.add(sg); });
+    // placas FV curvas sobre el techo
+    for (let i = 0; i < mm; i++) { const x = -L / 2 + (i + 0.5) * L / mm, w = L / mm - 0.1;
+      const mat = new THREE.MeshStandardMaterial({ map: texFV(2, 2), roughness: 0.25, metalness: 0.5, emissive: 0x3a7bff, emissiveIntensity: 0, side: THREE.DoubleSide });
+      mFV.push(mat); [[0.25, 1.3], [Math.PI - 1.3, Math.PI - 0.25]].forEach(a => casco(a[0], a[1], Rr + 0.03, mat, w, x)); }
+    // enredaderas + jardineras
+    const rnd = aleatorio(7), hojas = [];
+    const tira = (x, z, top, len) => { for (let y = top; y > top - len; y -= 0.11) hojas.push([x + (rnd() - 0.5) * 0.08, y, z + (rnd() - 0.5) * 0.08, 0.06 + rnd() * 0.07]); };
+    for (let x = -L / 2 + 0.1; x <= L / 2 - 0.1; x += 0.2) { tira(x, -1.3, 2.55, 1 + rnd() * 1.4); tira(x + 0.1, -1.12, 2.55, 0.6 + rnd() * 1.1); }
+    for (let x = -L / 2 + 0.2; x <= L / 2 - 0.2; x += 0.35) tira(x, 1.3, 2.55, 0.5 + rnd() * 0.9);
+    [-1, 1].forEach(sx => [-1, 1].forEach(q => { for (let z = 0.65; z <= 1.15; z += 0.2) tira(sx * (L / 2 + 0.05), q * z, 2.55, 0.8 + rnd() * 1.5); }));
+    const mMac = new THREE.MeshStandardMaterial({ color: 0x5a4636, roughness: 0.9 });
+    [-1.5, 1.5].forEach(z => bx(L - 0.2, 0.4, 0.4, mMac, 0, 0.2, z));
+    for (let i = 0; i < L * 28; i++) hojas.push([(rnd() - 0.5) * (L - 0.4), 0.45 + rnd() * 0.25, rnd() < 0.5 ? -1.5 : 1.5, 0.1 + rnd() * 0.1]);
+    const inst = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), hojas.length);
+    inst.castShadow = true; const dmy = new THREE.Object3D(), col = new THREE.Color();
+    hojas.forEach((h, i) => { dmy.position.set(h[0], h[1], h[2] + Z); dmy.scale.set(h[3] * 1.1, h[3] * 0.8, h[3] * 0.35);
+      dmy.rotation.set((rnd() - 0.5) * 1.2, (rnd() - 0.5) * 1.2, rnd() * Math.PI); dmy.updateMatrix(); inst.setMatrixAt(i, dmy.matrix);
+      col.setHSL(0.26 + rnd() * 0.08, 0.6, 0.12 + rnd() * 0.12); inst.setColorAt(i, col); });
+    g.add(inst);
+    // banco interior
+    const bl = L - 1.8; bx(bl, 0.06, 0.42, mMadera, 0, 0.5, -0.9); bx(bl, 0.4, 0.05, mMadera, 0, 0.8, -1.08);
+    [-1, 1].forEach(sx => bx(0.05, 0.5, 0.35, mEstruct, sx * (bl / 2 - 0.1), 0.25, -0.9));
+    // cámaras IA
+    const camaras = [], nc = Math.round(L / 3);
+    for (let i = 0; i < nc; i++) { const x = -L / 2 + (i + 0.5) * L / nc;
+      const domo = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 8, 0, Math.PI * 2, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8 }));
+      domo.rotation.x = Math.PI; domo.position.set(x, 2.73, Z); g.add(domo);
+      const led = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff3b30 })); led.position.set(x + 0.1, 2.68, Z); g.add(led);
+      const fov = new THREE.Mesh(new THREE.ConeGeometry(1.4, 2.5, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xffcc33, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false }));
+      fov.position.set(x, 1.45, Z); g.add(fov); camaras.push({ x, led, fov }); }
+    // tubería y boquillas
+    cil(0.02, L - 0.4, mEstruct, 0, 2.68, 0).rotation.z = Math.PI / 2;
+    for (let x = -L / 2 + 0.5; x <= L / 2 - 0.4; x += 0.7) { cil(0.025, 0.07, new THREE.MeshStandardMaterial({ color: 0xc0c8cc, metalness: 0.9 }), x, 2.64, 0); toberasNeb.push({ x, z: Z, y: 2.6 }); }
+    // ventilación: rejillas bajas (entrada, azul) y altas (salida, naranja) + extractores en la cima
+    const mRej = new THREE.MeshStandardMaterial({ color: 0x3a4548, metalness: 0.6, roughness: 0.4 });
+    [-1.2, 1.2].forEach(z => {
+      for (let y = 0.04; y < 0.3; y += 0.06) { const o = bx(L - 0.1, 0.012, 0.08, mRej, 0, y, z); o.rotation.x = 0.6 * Math.sign(z); }
+      for (let y = 2.52; y < 2.76; y += 0.07) { const o = bx(L - 0.1, 0.012, 0.09, mRej, 0, y, z); o.rotation.x = -0.6 * Math.sign(z); }
+      bx(L - 0.1, 0.02, 0.03, new THREE.MeshStandardMaterial({ color: 0x2d9cff }), 0, 0.31, z);
+      bx(L - 0.1, 0.02, 0.03, new THREE.MeshStandardMaterial({ color: 0xff8a2b }), 0, 2.5, z); });
+    const extract = [];
+    for (let k = 0; k < mm; k++) { const x = -L / 2 + (k + 0.5) * L / mm;
+      const aro = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.025, 8, 24), mRej); aro.rotation.x = Math.PI / 2; aro.position.set(x, 3.45, Z); g.add(aro);
+      const f = new THREE.Group(); f.position.set(x, 3.45, Z); g.add(f);
+      for (let b = 0; b < 5; b++) { const pa = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.01, 0.09), new THREE.MeshStandardMaterial({ color: 0xdfe6e8 }));
+        pa.position.x = 0.14; pa.rotation.x = 0.4; const w = new THREE.Group(); w.rotation.y = b * Math.PI * 2 / 5; w.add(pa); f.add(w); }
+      extract.push(f); }
+    // viento transversal acelerado sobre la curva (amarillo = más rápido) y aire interior hacia la cima
+    const NW = Math.round(L * 40), wp = new Float32Array(NW * 3), wc = new Float32Array(NW * 3), wz = [], wx = [], wh = [];
+    for (let i = 0; i < NW; i++) { wz.push(-4.5 + rnd() * 9); wx.push((rnd() - 0.5) * (L + 0.6)); wh.push(0.12 + rnd() * 0.7); }
+    const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.BufferAttribute(wp, 3)); wg.setAttribute('color', new THREE.BufferAttribute(wc, 3));
+    const viento = new THREE.Points(wg, new THREE.PointsMaterial({ size: 0.07, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false }));
+    viento.frustumCulled = false; g.add(viento);
+    const NA = Math.round(L * 30), ag = new THREE.BufferGeometry(); ag.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NA * 3), 3));
+    const aire = new THREE.Points(ag, new THREE.PointsMaterial({ color: 0x2d9cff, size: 0.08, transparent: true, opacity: 0.9, depthWrite: false }));
+    aire.frustumCulled = false; g.add(aire);
+    const aph = Array.from({ length: NA }, (_, i) => [rnd(), (rnd() - 0.5) * (L - 0.4), i % 2 ? 1 : -1]);
+    const bez = (a, b, c, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * b + t * t * c;
+    let AT = 0;
+    extrasUpd.push(dt => {
+      const dentro = [...avatares.values()].filter(a => Math.abs(a.grupo.position.x) < L / 2 - 0.15);
+      const boost = (dentro.length ? 1.7 : 1) * (est.ventilador ? 1.5 : 1);
+      AT += dt * 0.12 * boost;
+      for (const f of extract) f.rotation.y += dt * 7 * boost;
+      for (const pu of puertas) {    // se abre si alguien está a menos de 1,4 m
+        const cerca = [...avatares.values()].some(a => Math.abs(a.grupo.position.x - pu.x) < 1.4);
+        pu.o += ((cerca ? 1 : 0) - pu.o) * Math.min(1, dt * 3); pu.m.position.z = Z + pu.o;
+      }
+      for (const c of camaras) { const act = dentro.some(a => Math.abs(a.grupo.position.x - c.x) < 1.6);
+        c.led.material.color.set(act ? 0x2eff7a : 0xff3b30); c.fov.material.color.set(act ? 0x2eff7a : 0xffcc33); c.fov.material.opacity = act ? 0.14 : 0.07; }
+      const a = ag.attributes.position;
+      for (let i = 0; i < NA; i++) { const q = aph[i], t = (q[0] + AT) % 1;
+        a.setXYZ(i, q[1] + Math.sin(t * 6 + i) * 0.05, bez(0.3, 1.4, 4.7, t), bez(q[2] * 1.7, q[2] * 0.3, 0, t) + Z); }
+      a.needsUpdate = true;
+      const wpa = wg.attributes.position, wca = wg.attributes.color;
+      for (let i = 0; i < NW; i++) { const z0 = wz[i], v = 1 + 2.2 * Math.exp(-z0 * z0 / 1.1); wz[i] += dt * v * 1.4; if (wz[i] > 4.5) wz[i] = -4.5;
+        const zz = wz[i], ys = Math.abs(zz) < 1.35 ? Math.sqrt(1.8225 - zz * zz) : 0;
+        wpa.setXYZ(i, wx[i], 2.75 + wh[i] + ys, zz + Z); const f = Math.min(1, (v - 1) / 2.2); wca.setXYZ(i, 0.25 + 0.75 * f, 0.65 + 0.15 * f, 1 - 0.7 * f); }
+      wpa.needsUpdate = true; wca.needsUpdate = true;
+    });
+  }
+  if (esCupula) fuente(limites.minX - 0.9, -1.6); else if (tipo === 'pabellon') fuente(-LP / 2 - 1.6, 0.6); else if (tipo === 'marquesina') fuente(-3.9, -0.4); else fuente(2.7, -0.8);
 
   // --- luz interior (noche) ---
   const luzInt = new THREE.PointLight(0xffc27a, 0, 8); luzInt.position.set(0, TOPE - 0.4, (limites.minZ + limites.maxZ) / 2);
