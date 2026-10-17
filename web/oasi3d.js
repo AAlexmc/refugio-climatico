@@ -75,7 +75,7 @@ function crearChorro(n, { color, size, opacity, emitir, vida, grav = 0 }) {
         if (life[i] <= 0) {
           if (activo && Math.random() < dt * n / vida) {
             life[i] = vida * (0.6 + Math.random() * 0.4);
-            emitir(pos, vel, i * 3);
+            if (emitir(pos, vel, i * 3) === false) { life[i] = 0; continue; }   // sin toberas: no emite
           } else continue;
         }
         life[i] -= dt;
@@ -103,7 +103,10 @@ const _glb = {};
 function cargarGLB(clave) {
   if (new URLSearchParams(globalThis.location?.search || '').has('sin_modelos')) return Promise.resolve(null);
   return (_glb[clave] ??= new Promise(res => {
-    new GLTFLoader().load(MODELOS[clave], gltf => res(gltf.scene), undefined, () => res(null));
+    new GLTFLoader().load(MODELOS[clave], gltf => {
+      gltf.scene.traverse(o => { if (o.isMesh) o.userData.compartido = true; });   // no liberar al reconstruir
+      res(gltf.scene);
+    }, undefined, () => res(null));
   }).catch(() => null));
 }
 // Clona el modelo, lo orienta (eje largo horizontal -> z, o sin girar), lo escala con Box3 y lo apoya en y = 0.
@@ -773,10 +776,12 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   // --- partículas ---
   const chorroAC = crearChorro(50 * n, { color: 0x4aa8ff, size: 0.12, opacity: 0.8, vida: 2.2, emitir(p, v, i) {
     const t = toberasAC[Math.floor(Math.random() * toberasAC.length)];
+    if (!t) return false;   // tipos sin cúpula: el AC no tiene rejillas interiores
     p[i] = t.x; p[i + 1] = 2.1 + Math.random() * 0.2; p[i + 2] = t.z + (Math.random() - 0.5) * 1.2;
     v[i] = t.dir * (0.4 + Math.random() * 0.3); v[i + 1] = -0.15 - Math.random() * 0.15; v[i + 2] = (Math.random() - 0.5) * 0.1; } });
   const chorroNeb = crearChorro(70 * n, { color: 0xffffff, size: 0.3, opacity: 0.35, vida: 3, emitir(p, v, i) {
     const t = toberasNeb[Math.floor(Math.random() * toberasNeb.length)];
+    if (!t) return false;
     p[i] = t.x + (Math.random() - 0.5) * 0.8; p[i + 1] = t.y ?? TOPE - 0.25; p[i + 2] = t.z + (Math.random() - 0.5) * 1.6;
     v[i] = (Math.random() - 0.5) * 0.15; v[i + 1] = -0.25 - Math.random() * 0.15; v[i + 2] = (Math.random() - 0.5) * 0.15; } });
   g.add(chorroAC.pts, chorroNeb.pts);
@@ -867,7 +872,8 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
         if (a.nuevo) { a.grupo.position.copy(a.objetivo); a.nuevo = false; }
       });
       for (const [k, a] of avatares) if (!vistos.has(k)) {
-        g.remove(a.grupo); a.grupo.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });
+        g.remove(a.grupo); a.grupo.traverse(o => { if (o.userData.compartido) { o.material?.dispose?.(); return; }
+          o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose?.(); });
         avatares.delete(k);
       }
     },
@@ -924,7 +930,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     dispose() {
       vivo = false;
       scene.remove(g);
-      g.traverse(o => { o.geometry?.dispose();
+      g.traverse(o => { if (o.userData.compartido) return; o.geometry?.dispose();
         const ms = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
         ms.forEach(m => { m.map?.dispose(); m.dispose(); }); });
     },
