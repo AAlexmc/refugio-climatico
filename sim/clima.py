@@ -54,7 +54,9 @@ def radiacion(h: float) -> float:
 
 class FuenteClimaSim:
     def __init__(self, velocidad: float = 60.0, periodo: float = 1.0,
-                 inicio_hora: float = 12.0, refugio: str = REFUGIO) -> None:
+                 inicio_hora: float = 12.0, refugio: str = REFUGIO,
+                 offset_t_ext: float = 0.0) -> None:
+        self.offset_t_ext = offset_t_ext  # °C sumados a t_exterior (escenarios multi-día)
         self.velocidad = velocidad
         self.periodo = periodo
         self.refugio = refugio
@@ -90,7 +92,7 @@ class FuenteClimaSim:
 
     def _paso1(self, dt: float) -> dict:
         h = (self.t_s / 3600.0) % 24
-        te, hre, sol = t_exterior(h), hr_exterior(h), radiacion(h)
+        te, hre, sol = t_exterior(h) + self.offset_t_ext, hr_exterior(h), radiacion(h)
         ua = UA_CUPULA + VENT_MAX * self.claraboya
         q = ua * (te - self.temp) + G_SOLAR * AREA_SOL * sol + W_PERSONA * self.aforo
         p_elec = 150.0  # control + iluminación + bombas de riego

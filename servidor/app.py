@@ -102,6 +102,11 @@ def crear_app(nombres: list[tuple[str, dict]] | None = None, *, bus: Bus | None 
     async def estado():
         return bus.estado()
 
+    @app.get("/api/metricas")
+    async def metricas():
+        from sim import metricas as m
+        return await asyncio.to_thread(m.escenario)
+
     @app.get("/api/kits")
     async def kits():
         import json
