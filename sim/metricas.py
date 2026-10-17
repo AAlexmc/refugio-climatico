@@ -1,0 +1,107 @@
+"""Métricas del escenario de 5 días de ola de calor: calle / cúpula sin control / OASI.
+
+Reutiliza la física de `sim/clima.py` y las reglas de `control/reglas.py` en lazo
+cerrado sobre un Bus en memoria (síncrono, sin asyncio). Determinista.
+"""
+from __future__ import annotations
+
+from functools import lru_cache
+
+from control.reglas import MotorReglas
+from nucleo.bus import Bus
+from nucleo.confort import indice_calor
+from nucleo.evento import Evento
+from sim import clima
+
+DIAS = 5
+PASO_S = 600.0      # muestreo de las series
+CTRL_S = 30.0       # paso de control/física (el AC de 3,5 kW oscila si se controla a 600 s)
+OFFSET_DIA = (0.0, 0.5, 1.0, 1.5, 2.0)   # °C extra sobre la ola de calor base
+UMBRAL_RIESGO = 32.0
+EUR_KWH = 0.20
+KG_CO2_KWH = 0.2
+
+
+def aforo_en(h: float) -> int:
+    """4 de noche, 15 de 10 a 19 h, pico de 20 en la primera media hora de las horas pares."""
+    if 10 <= h < 19:
+        return 20 if (int(h) % 2 == 0 and h % 1 < 0.5) else 15
+    return 4
+
+
+def _r(x: float, n: int = 1) -> float:
+    return round(float(x), n)
+
+
+def _simular() -> dict:
+    bus = Bus()
+    m = MotorReglas(bus, avisar=lambda r, msg: None)
+    bus.oyente(m.procesar)
+    oasi = clima.FuenteClimaSim(inicio_hora=0.0)
+    bus.oyente(oasi._oir)
+    cup = clima.FuenteClimaSim(inicio_hora=0.0)   # sin reglas: claraboya cerrada, nada encendido
+    ref = oasi.refugio
+    t, calle, t_oasi, t_cup, solar, cons, bat, afo = ([] for _ in range(8))
+    n_sub = round(PASO_S / CTRL_S)
+    kwh_sol = kwh_cons = kwh_red = 0.0           # J -> kWh al final
+    ries_calle = ries_oasi = 0                   # subpasos con índice de calor > umbral
+    noche_w = noche_n = 0
+    pico = 0.0
+    for i in range(int(DIAS * 86400 / PASO_S)):
+        sol_m = cons_m = 0.0
+        for j in range(n_sub):
+            seg = i * PASO_S + j * CTRL_S
+            h = (seg / 3600.0) % 24
+            oasi.offset_t_ext = cup.offset_t_ext = OFFSET_DIA[int(seg // 86400)]
+            a = aforo_en(h)
+            cup.aforo = a
+            bus.publicar(Evento("aforo", a, "sim", ref))   # oasi lo recibe por el bus
+            d = oasi.paso(CTRL_S)
+            c = cup.paso(CTRL_S)
+            for tipo in ("temp_ext", "temp", "humedad"):
+                bus.publicar(Evento(tipo, d[tipo], "sim", ref))
+            sol_m += d["solar"] / n_sub
+            cons_m += d["potencia"] / n_sub
+            kwh_sol += d["solar"] * CTRL_S
+            kwh_cons += d["potencia"] * CTRL_S
+            kwh_red += max(0.0, d["red"]) * CTRL_S
+            ries_calle += indice_calor(d["temp_ext"], d["humedad_ext"]) > UMBRAL_RIESGO
+            ries_oasi += indice_calor(d["temp"], d["humedad"]) > UMBRAL_RIESGO
+            if d["radiacion"] > 0:
+                pico = max(pico, d["temp_ext"] - d["temp"])
+            else:
+                noche_w += d["potencia"]
+                noche_n += 1
+        t.append(int((i + 1) * PASO_S))
+        calle.append(d["temp_ext"])
+        t_oasi.append(d["temp"])
+        t_cup.append(c["temp"])
+        solar.append(sol_m)
+        cons.append(cons_m)
+        bat.append(d["bateria"])
+        afo.append(a)
+    kwh_sol, kwh_cons, kwh_red = (x / 3.6e6 for x in (kwh_sol, kwh_cons, kwh_red))
+    cons_noche = noche_w / noche_n if noche_n else kwh_cons * 1000.0 / (DIAS * 24)
+    usable_kwh = clima.BAT_KWH * (100.0 - clima.BAT_RESERVA) / 100.0
+    h_sub = CTRL_S / 3600.0
+    ries_calle *= h_sub
+    ries_oasi *= h_sub
+    return {
+        "series": {"t": t, "temp_calle": [_r(x, 2) for x in calle], "temp_oasi": [_r(x, 2) for x in t_oasi],
+                   "temp_cupula": [_r(x, 2) for x in t_cup], "solar": [int(x) for x in solar],
+                   "consumo": [int(x) for x in cons], "bateria": [_r(x) for x in bat], "aforo": afo},
+        "resumen": {
+            "grados_reducidos_pico": _r(pico),
+            "horas_riesgo_evitadas": _r(ries_calle - ries_oasi),
+            "kwh_solares": _r(kwh_sol),
+            "pct_autoconsumo": _r(100.0 * (1.0 - kwh_red / kwh_cons) if kwh_cons else 0.0),
+            "autonomia_h": _r(usable_kwh * 1000.0 / cons_noche if cons_noche else 0.0),
+            "coste_eur_dia": _r(kwh_red / DIAS * EUR_KWH, 2),
+            "co2_kg_evitado": _r(kwh_sol * KG_CO2_KWH, 2),
+        },
+    }
+
+
+@lru_cache(maxsize=1)
+def escenario() -> dict:
+    return _simular()
