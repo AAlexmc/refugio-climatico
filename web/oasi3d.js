@@ -208,6 +208,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   const limites = esCupula ? { minX: -cols * R, maxX: cols * R, minZ: -filas * LADO, maxZ: 0 }
                            : tipo === 'marquesina' ? { minX: -2.9, maxX: 2.9, minZ: -2.1, maxZ: 0 }
                            : tipo === 'pabellon' ? { minX: -LP / 2, maxX: LP / 2, minZ: -2.6, maxZ: -0.2 }
+                           : tipo === 'pergola' ? { minX: -3.0, maxX: 3.0, minZ: -4.4, maxZ: -0.5 }
                            : { minX: -3, maxX: 3, minZ: -6, maxZ: 0 };
 
   // --- materiales ---
@@ -310,7 +311,8 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   ac.add(aspas, luzAC);
   ac.scale.setScalar(0.8);
   if (tipo === 'marquesina') ac.position.set(4.3, 0, -1.9);
-  else if (tipo === 'pabellon') ac.position.set(LP / 2 + 1.2, 0, -2.6); else ac.position.set(limites.maxX + 0.35, 0, limites.minZ + 0.8);
+  else if (tipo === 'pabellon') ac.position.set(LP / 2 + 1.2, 0, -2.6);
+  else if (tipo === 'pergola') ac.position.set(3.7, 0, -4.9); else ac.position.set(limites.maxX + 0.35, 0, limites.minZ + 0.8);
   g.add(ac);
 
   const bat = new THREE.Group();
@@ -426,7 +428,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     for (let k = 0; k < 4; k++) toberasNeb.push({ x: x + (k / 3 - 0.5) * (w - 0.6), z, y: h - 0.15 });
     return pg;
   }
-  if (!esCupula && tipo !== 'marquesina' && tipo !== 'pabellon') {
+  if (!esCupula && !['marquesina', 'pabellon', 'pergola'].includes(tipo)) {
     const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 0.1, 48), mSuelo); plat.position.set(0, -0.05, -3); plat.receiveShadow = true; g.add(plat);
   }
   if (tipo === 'arbol_solar') {
@@ -677,7 +679,92 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
       wpa.needsUpdate = true; wca.needsUpdate = true;
     });
   }
-  if (esCupula) fuente(limites.minX - 0.9, -1.6); else if (tipo === 'pabellon') fuente(-LP / 2 - 1.6, 0.6); else if (tipo === 'marquesina') fuente(-3.9, -0.4); else fuente(2.7, -0.8);
+  if (tipo === 'pergola') {
+    // «Refugi climàtic» (diseño del equipo): plataforma de madera 6,4 x 4,4 m, toldo tensado 11,6 x 7,6 m
+    // a 3,5 m, núcleo hexagonal con biblioteca, mesa y bancos con jardinera.
+    const Z = -2.4, DK = 0.4;
+    const rnd = aleatorio(12345);
+    const cvs = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+    const cMad = cvs(256, 256), xm = cMad.getContext('2d');
+    for (let i = 0; i < 8; i++) { const t = rnd();
+      xm.fillStyle = `rgb(${214 + Math.round((t - 0.5) * 22)},${166 + Math.round((t - 0.5) * 22)},${104 + Math.round((t - 0.5) * 20)})`; xm.fillRect(0, i * 32, 256, 32);
+      for (let k = 0; k < 14; k++) { xm.strokeStyle = `rgba(120,78,34,${0.05 + rnd() * 0.12})`; xm.lineWidth = 0.6 + rnd() * 1.1; const y = i * 32 + 2 + rnd() * 28;
+        xm.beginPath(); xm.moveTo(0, y); xm.bezierCurveTo(80, y + (rnd() - 0.5) * 3, 170, y + (rnd() - 0.5) * 3, 256, y); xm.stroke(); }
+      xm.fillStyle = 'rgba(90,56,22,.55)'; xm.fillRect(0, i * 32, 256, 1.4); }
+    const tMad = new THREE.CanvasTexture(cMad); tMad.wrapS = tMad.wrapT = THREE.RepeatWrapping; tMad.colorSpace = THREE.SRGBColorSpace;
+    const tMadV = tMad.clone(); tMadV.needsUpdate = true; tMadV.center.set(0.5, 0.5); tMadV.rotation = Math.PI / 2;
+    const madera = new THREE.MeshStandardMaterial({ map: tMad, roughness: 0.82 }), maderaV = new THREE.MeshStandardMaterial({ map: tMadV, roughness: 0.82 });
+    const maderaOsc = new THREE.MeshStandardMaterial({ color: 0xb08a58, map: tMad, roughness: 0.88 });
+    const acero = new THREE.MeshStandardMaterial({ color: 0x4b5057, roughness: 0.5, metalness: 0.4 });
+    const tierraM = new THREE.MeshStandardMaterial({ color: 0x3a2c20 });
+    const escUV = (gm, w, h, d) => { const uv = gm.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) { const k = f * 4 + i; uv.setXY(k, uv.getX(k) * dims[f][0], uv.getY(k) * dims[f][1]); } uv.needsUpdate = true; };
+    const mk = (w, h, d, mat, x, y, z) => { const gm = new THREE.BoxGeometry(w, h, d); escUV(gm, w, h, d);
+      const m = new THREE.Mesh(gm, mat); m.position.set(x, y, z + Z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+    const viga = (a, b, w, h, mat) => { a = a.clone(); b = b.clone(); a.z += Z; b.z += Z; const L = a.distanceTo(b), gm = new THREE.BoxGeometry(w, h, L); escUV(gm, w, h, L);
+      const m = new THREE.Mesh(gm, mat); m.position.copy(a).add(b).multiplyScalar(0.5); m.lookAt(b); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+    const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+    const verdes = [0x4a7a2c, 0x5a8a33, 0x3e6b28, 0x6a9a40, 0x7da644].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true }));
+    const geoB = new THREE.IcosahedronGeometry(1, 1);
+    const bola = (x, y, z, r) => { const m = new THREE.Mesh(geoB, verdes[(rnd() * 5) | 0]); m.position.set(x, y, z + Z); m.scale.setScalar(r);
+      m.rotation.set(rnd() * 6, rnd() * 6, rnd() * 6); m.castShadow = true; g.add(m); };
+    const arbusto = (cx, cy, cz, sx, sz, k, r0, r1, hm) => { for (let i = 0; i < k; i++) bola(cx + (rnd() - 0.5) * 2 * sx, cy + rnd() * hm, cz + (rnd() - 0.5) * 2 * sz, r0 + rnd() * (r1 - r0)); };
+    // plataforma
+    mk(6.3, 0.2, 4.3, maderaOsc, 0, 0.22, 0); mk(6.4, 0.1, 4.4, madera, 0, 0.35, 0);
+    [[-3, -2], [3, -2], [-3, 2], [3, 2], [0, -2], [0, 2]].forEach(q => mk(0.34, 0.13, 0.34, maderaOsc, q[0], 0.065, q[1]));
+    // pilares, vigas y radios del toldo
+    const PX = 3.2, PZ = 2.2, PTOP = 2.9;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(q => { mk(0.3, 0.08, 0.3, acero, q[0] * PX, DK + 0.04, q[1] * PZ);
+      mk(0.24, PTOP - DK - 0.08, 0.24, maderaV, q[0] * PX, DK + 0.08 + (PTOP - DK - 0.08) / 2, q[1] * PZ); });
+    [-1, 1].forEach(q => { viga(V3(-PX - 0.1, PTOP + 0.04, q * PZ), V3(PX + 0.1, PTOP + 0.04, q * PZ), 0.16, 0.22, madera);
+      viga(V3(q * PX, PTOP + 0.04, -PZ - 0.1), V3(q * PX, PTOP + 0.04, PZ + 0.1), 0.16, 0.22, madera); });
+    const CTR = V3(0, 3.44, 0);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(q => { viga(CTR, V3(q[0] * 5.55, 2.5, q[1] * 3.65), 0.16, 0.2, madera);
+      viga(V3(q[0] * PX, PTOP + 0.04, q[1] * PZ), V3(q[0] * 5.5, 2.72, q[1] * PZ), 0.14, 0.18, madera);
+      viga(V3(q[0] * PX, PTOP + 0.04, q[1] * PZ), V3(q[0] * PX, 2.74, q[1] * 3.6), 0.14, 0.18, madera); });
+    [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(q => viga(CTR, V3(q[0] * 5.3, 2.78, q[1] * 3.45), 0.13, 0.16, madera));
+    const anillo2 = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.2, 10), maderaOsc); anillo2.position.set(0, 3.44, Z); g.add(anillo2);
+    const fg = new THREE.PlaneGeometry(11.6, 7.6, 48, 32); fg.rotateX(-Math.PI / 2);
+    { const pa = fg.attributes.position;
+      for (let i = 0; i < pa.count; i++) { const x = pa.getX(i), z = pa.getZ(i), u = x / 5.8, v = z / 3.8, r2 = (u * u + v * v) / 2;
+        pa.setY(i, 2.55 + 0.95 * Math.pow(Math.max(0, 1 - r2), 1.3));
+        pa.setX(i, x * (1 - 0.08 * (1 - v * v) * Math.pow(Math.abs(u), 4))); pa.setZ(i, z * (1 - 0.08 * (1 - u * u) * Math.pow(Math.abs(v), 4)) + Z); }
+      fg.computeVertexNormals(); }
+    const toldo = new THREE.Mesh(fg, new THREE.MeshStandardMaterial({ color: 0xefe4cc, emissive: 0x3a3122, emissiveIntensity: 0.55, roughness: 0.92, side: THREE.DoubleSide }));
+    toldo.castShadow = toldo.receiveShadow = true; g.add(toldo);
+    // núcleo hexagonal con biblioteca
+    const C = { x: 0, z: -0.9 }, A = 1.35, T = 0.12, HH = 2.3;
+    for (let i = 1; i < 6; i++) { const phi = i * Math.PI / 3, d = A - T / 2; const w = mk(1.64, HH, T, madera, C.x + Math.sin(phi) * d, DK + HH / 2, C.z + Math.cos(phi) * d); w.rotation.y = phi; }
+    const cartel = (lineas, tam, phi) => { const c = cvs(512, 1024), x = c.getContext('2d'); x.fillStyle = '#5a5148'; x.font = `600 ${tam}px system-ui,sans-serif`;
+      lineas.forEach((l, i) => x.fillText(l, 60, 170 + i * tam * 1.15)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 2.2), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }));
+      const dd = A + 0.006; m.position.set(C.x + Math.sin(phi) * dd, DK + HH / 2, C.z + Math.cos(phi) * dd + Z); m.rotation.y = phi; g.add(m); };
+    cartel(['Refugi', 'climàtic'], 92, 5 * Math.PI / 3); cartel(['Un espai', 'més fresc', 'per a tothom'], 62, Math.PI / 3);
+    [-1, 1].forEach(q => { const hx = q * 0.78, hz = C.z + 1.35; mk(0.16, HH, 0.16, maderaV, hx, DK + HH / 2, hz);
+      const pu = mk(0.05, HH - 0.1, 0.8, maderaV, hx + Math.sin(q * 0.44) * 0.42, DK + HH / 2, hz + Math.cos(0.44) * 0.42); pu.rotation.y = q * 0.44; });
+    const shZ = C.z - (A - T) + 0.185;
+    [-1, 1].forEach(q => mk(0.04, 2.1, 0.34, madera, q * 0.65, DK + 1.05, shZ));
+    for (let i = 0; i < 5; i++) mk(1.34, 0.04, 0.34, madera, 0, DK + 0.05 + i * 0.5, shZ);
+    const mLib = [0xd8c8a6, 0xcdb98e, 0xe0d2b2, 0x9a5b3e, 0x456a8a].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }));
+    for (let r = 0; r < 4; r++) for (let j = 0; j < 8; j++) { const bh = 0.3 + rnd() * 0.12; const b = new THREE.Mesh(new THREE.BoxGeometry(0.14, bh, 0.27), mLib[(rnd() * 5) | 0]);
+      b.position.set(-0.57 + j * 0.163, DK + 0.07 + r * 0.5 + bh / 2, shZ + 0.02 + Z); b.castShadow = true; g.add(b); }
+    for (let i = 0; i < 16; i++) { const aa = Math.PI * (0.55 + rnd() * 0.9); bola(C.x + Math.sin(aa + Math.PI) * (0.5 + rnd() * 0.9), DK + HH + 0.15 + rnd() * 0.35, C.z - Math.cos(aa + Math.PI) * (0.5 + rnd() * 0.9), 0.25 + rnd() * 0.25); }
+    // mesa y bancos interiores
+    mk(2.5, 0.05, 0.75, madera, 0.35, DK + 0.45, 0.3);
+    [[-0.85, 0.05], [1.55, 0.05], [-0.85, 0.55], [1.55, 0.55]].forEach(q => mk(0.06, 0.43, 0.06, maderaOsc, q[0], DK + 0.215, q[1]));
+    for (const bz of [-0.42, 1.0]) { mk(2.4, 0.05, 0.34, madera, 0.35, DK + 0.375, bz); [-0.8, 1.5].forEach(x => mk(0.06, 0.35, 0.3, maderaOsc, x, DK + 0.175, bz)); }
+    mk(0.4, 0.4, 0.4, madera, 1.95, DK + 0.2, 0.35); mk(0.4, 0.4, 0.4, madera, 2.45, DK + 0.2, -0.2);
+    // bancos con jardinera delante y jardineras detrás
+    for (const cx of [-4.5, 4.5]) { mk(2.2, 0.85, 0.7, madera, cx, 0.425, 1.5); mk(2.0, 0.04, 0.5, tierraM, cx, 0.86, 1.5);
+      arbusto(cx, 0.95, 1.5, 0.85, 0.14, 9, 0.34, 0.55, 0.55); mk(2.2, 0.08, 0.5, madera, cx, 0.46, 2.05);
+      mk(0.08, 0.42, 0.4, maderaOsc, cx - 1.0, 0.21, 2.05); mk(0.08, 0.42, 0.4, maderaOsc, cx + 1.0, 0.21, 2.05);
+      const re = mk(2.2, 0.5, 0.06, madera, cx, 0.78, 1.86); re.rotation.x = -0.18; }
+    [-1, 1].forEach(q => { mk(1.3, 0.55, 0.8, madera, q * 2.5, DK + 0.275, -1.6); mk(1.15, 0.04, 0.65, tierraM, q * 2.5, DK + 0.57, -1.6);
+      arbusto(q * 2.5, DK + 0.7, -1.6, 0.55, 0.3, 9, 0.3, 0.5, 0.8); });
+    // nebulizadores bajo el toldo
+    for (let k = 0; k < 6; k++) toberasNeb.push({ x: -2.5 + k, z: Z + 0.6, y: 2.75 });
+  }
+  if (esCupula) fuente(limites.minX - 0.9, -1.6); else if (tipo === 'pergola') fuente(-6.2, -1.0); else if (tipo === 'pabellon') fuente(-LP / 2 - 1.6, 0.6); else if (tipo === 'marquesina') fuente(-3.9, -0.4); else fuente(2.7, -0.8);
 
   // --- luz interior (noche) ---
   const luzInt = new THREE.PointLight(0xffc27a, 0, 8); luzInt.position.set(0, TOPE - 0.4, (limites.minZ + limites.maxZ) / 2);
@@ -695,6 +782,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   g.add(chorroAC.pts, chorroNeb.pts);
 
   // --- personas ---
+  const sueloY = tipo === 'pergola' ? 0.4 : 0;   // personas sobre la plataforma de madera
   const avatares = new Map();   // clave -> {grupo, cuerpo, etiqueta, mat, objetivo, rotX, escY}
   const mats = { normal: 0x5aa9e6, rojo: 0xff2a2a };
   let desmayo = { activo: false, persona: null };
@@ -774,7 +862,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
         vistos.add(clave);
         let a = avatares.get(clave);
         if (!a) { a = crearAvatar(clave, p, idx); avatares.set(clave, a); }
-        a.objetivo.set(clampX(p.x), 0, clampZ(-p.y));
+        a.objetivo.set(clampX(p.x), sueloY, clampZ(-p.y));
         a.estado = p.estado || 'de_pie';
         if (a.nuevo) { a.grupo.position.copy(a.objetivo); a.nuevo = false; }
       });
