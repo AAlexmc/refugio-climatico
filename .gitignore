@@ -14,3 +14,6 @@ captar/esp32_refugio/sdkconfig.old
 *.avi
 capturas/
 .claude/settings.local.json
+
+# modelos FurniMesh: licencia no declarada -> solo en local para la demo (ver web/modelos/CREDITOS.md)
+web/modelos/furnimesh/*.glb

@@ -19,6 +19,7 @@ Reglas base, en orden de prioridad:
 """
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 
 from control import alerta_medica
@@ -32,6 +33,7 @@ DELTA_VENT = 1.0
 AFORO_MAX = 20
 AFORO_ACTIVAR = 4         # personas: a partir de aquí se refuerza el sistema térmico
 IC_AC_AFLUENCIA = 25.0
+MANTENER_AFLUENCIA_S = 30.0  # s reales: el conteo de la cámara parpadea; no encender/apagar cada frame
 HR_MAX_NEBU = 60.0
 T_MIN_NEBU = 26.0
 
@@ -39,11 +41,13 @@ ENTRADAS = {"temp", "temp_ext", "humedad", "aforo", "lluvia", "caida", "desmayo"
 
 
 class MotorReglas:
-    def __init__(self, bus: Bus, *, aforo_max: int = AFORO_MAX,
+    def __init__(self, bus: Bus, *, aforo_max: int = AFORO_MAX, reloj: Callable[[], float] = time.monotonic,
                  avisar: Callable[[str, str], None] = alerta_medica.avisar) -> None:
         self.bus = bus
         self.aforo_max = aforo_max
         self.avisar = avisar
+        self.reloj = reloj
+        self._afluencia_hasta: dict[str, float] = {}
         self.v: dict[str, dict] = {}            # refugio -> {tipo: valor}
         self.cmd: dict[tuple[str, str], object] = {}
         self.alertas: dict[tuple[str, str], str] = {}
@@ -91,7 +95,10 @@ class MotorReglas:
         ventilar = (not lluvia) and te is not None and float(te) <= t - DELTA_VENT and float(te) < IC_AC_ON
         self._comando(r, "claraboya", 1.0 if ventilar else 0.0)
 
-        afluencia = aforo >= AFORO_ACTIVAR
+        ahora = self.reloj()
+        if aforo >= AFORO_ACTIVAR:
+            self._afluencia_hasta[r] = ahora + MANTENER_AFLUENCIA_S
+        afluencia = ahora < self._afluencia_hasta.get(r, float("-inf"))
         ac_prev = bool(self.cmd.get((r, "ac"), False))
         umbral = IC_AC_AFLUENCIA if afluencia else IC_AC_ON
         if ventilar and not afluencia:

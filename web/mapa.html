@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OASI — Mapa de refugios</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f3f4f1; --surface: #fcfcfb; --border: #dcdcd6;
+    --text: #0b0b0b; --text-2: #52514e; --muted: #6b6a63;
+    --land: #e9ece3; --sea: #cfe3f1; --road: #b9b8ae; --road-main: #8d8c82; --park: #d5e3cc;
+    --ok: #157f3b; --ok-bg: #dff3e5; --warn: #9a5b00; --warn-bg: #ffe9bf; --crit: #c52f2f; --crit-bg: #fbe0e0;
+    --pin-ok: #157f3b; --pin-warn: #b86e00; --pin-crit: #c52f2f; --pin-nd: #6b6a63; --pin-glifo: #fff;
+    --nd: #6b6a63; --accent: #2a78d6; --on-accent: #fff; --you: #6250d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #0f1110; --surface: #1a1a19; --border: #33332f;
+      --text: #f0efec; --text-2: #c3c2b7; --muted: #9a998f;
+      --land: #23251f; --sea: #14283a; --road: #46463f; --road-main: #6e6d63; --park: #27341f;
+      --ok: #55d27f; --ok-bg: #12301c; --warn: #ffc24d; --warn-bg: #3a2a08; --crit: #ff7b7b; --crit-bg: #3d1515;
+      --pin-ok: #55d27f; --pin-warn: #ffc24d; --pin-crit: #ff7b7b; --pin-nd: #9a998f; --pin-glifo: #0b0b0b;
+      --nd: #9a998f; --accent: #6aa7f2; --on-accent: #0b0b0b; --you: #a99cff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0 auto; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, sans-serif; max-width: 480px; }
+  header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+  header h1 { font-size: 1.05rem; margin: 0; flex: 1; }
+  select, button { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; min-height: 44px; }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  .bar { padding: 0 12px 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .bar button.primary { flex: 1; }
+  #net { font-size: .8rem; color: var(--muted); }
+  svg#mapa { width: 100%; height: auto; display: block; background: var(--sea); touch-action: manipulation; }
+  .land { fill: var(--land); stroke: var(--road-main); stroke-width: 1.5; }
+  .calle { fill: none; stroke: var(--road-main); stroke-width: 3; stroke-linecap: round; }
+  .rot { font-size: 8px; fill: var(--muted); letter-spacing: .5px; }
+  .barrio { font-size: 9px; fill: var(--text-2); text-anchor: middle; font-weight: 600; opacity: .85; }
+  .mar { font-size: 10px; fill: var(--accent); font-style: italic; }
+  .pin { cursor: pointer; }
+  .pin .nombre { font-size: 8.5px; fill: var(--text); text-anchor: middle; font-weight: 700; paint-order: stroke; stroke: var(--land); stroke-width: 3px; }
+  .pin .glifo { font-size: 13px; font-weight: 800; text-anchor: middle; fill: var(--pin-glifo); pointer-events: none; }
+  .pin.ok circle.c { fill: var(--pin-ok); } .pin.warn circle.c { fill: var(--pin-warn); } .pin.crit circle.c { fill: var(--pin-crit); } .pin.nd circle.c { fill: var(--pin-nd); }
+  .pin circle.c { stroke: var(--surface); stroke-width: 2; }
+  .pin circle.ring { fill: none; stroke: none; }
+  .pin.sel circle.ring { stroke: var(--accent); stroke-width: 3; }
+  .tu text { font-size: 8px; fill: var(--you); font-weight: 700; text-anchor: middle; }
+  .tu circle { fill: var(--you); stroke: var(--surface); stroke-width: 2; }
+  .ruta { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 5 4; fill: none; }
+  #ficha { margin: 10px 12px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  #ficha h2 { margin: 0 0 6px; font-size: 1.15rem; }
+  .estado { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: .9rem; }
+  .estado.ok { background: var(--ok-bg); color: var(--ok); } .estado.warn { background: var(--warn-bg); color: var(--warn); }
+  .estado.crit { background: var(--crit-bg); color: var(--crit); } .estado.nd { background: var(--border); color: var(--nd); }
+  .tag { display: inline-block; font-size: .72rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); color: var(--text-2); vertical-align: middle; }
+  .tag.real { border-color: var(--ok); color: var(--ok); }
+  .tag.sim { border-style: dashed; }
+  dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 12px 0; }
+  dt { color: var(--text-2); } dd { margin: 0; font-weight: 700; text-align: right; }
+  .alerta { background: var(--crit-bg); color: var(--crit); padding: 8px 10px; border-radius: 8px; margin: 8px 0; font-weight: 600; }
+  #ficha button { width: 100%; }
+  .leyenda { padding: 0 12px 12px; font-size: .8rem; display: flex; gap: 8px; flex-wrap: wrap; }
+  footer { padding: 0 12px 20px; font-size: .75rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="t_titulo">OASI · Refugios cerca de ti</h1>
+  <select id="lang" aria-label="Idioma / Language"><option value="es">ES</option><option value="ca">CA</option><option value="en">EN</option></select>
+</header>
+<div class="bar">
+  <button class="primary" id="btnCerca"></button>
+  <span id="net"></span>
+</div>
+
+<svg id="mapa" viewBox="0 0 360 370" role="img" aria-label="Mapa esquemático de Barcelona">
+  <path class="land" d="M0,0 L360,0 L360,60 L335,90 L270,165 L215,215 L120,290 L10,350 L0,360 Z"/>
+  <path d="M0,0 L120,0 L60,90 L0,130 Z" fill="var(--park)" opacity=".8"/>
+  <path d="M40,300 L100,290 L128,288 L110,310 L50,335 Z" fill="var(--park)" opacity=".8"/>
+  <path class="calle" d="M25,215 L238,127 L325,95"/>
+  <path class="calle" d="M30,296 L88,252 L238,127"/>
+  <path class="calle" d="M238,127 L275,15"/>
+  <path class="calle" d="M88,252 L122,289"/>
+  <text class="rot" transform="translate(100,170) rotate(-22)">Diagonal</text>
+  <text class="rot" transform="translate(40,275) rotate(-38)">Gran Via</text>
+  <text class="rot" transform="translate(264,80) rotate(-73)">Meridiana</text>
+  <text class="rot" transform="translate(112,262) rotate(50)">Paral·lel</text>
+  <text class="mar" x="270" y="240">Mediterrània</text>
+  <g id="barrios"></g>
+  <path id="ruta" class="ruta" d=""/>
+  <g id="pins"></g>
+  <g class="tu" id="tu"><circle r="6"/><text y="-10" id="t_tu">Tú</text></g>
+</svg>
+
+<section id="ficha"></section>
+<div class="leyenda" id="leyenda"></div>
+<footer id="pie"></footer>
+
+<script>
+const I18N = {
+  es: { titulo:"OASI · Refugios cerca de ti", cerca:"El más cercano con sitio", tu:"Tú", ok:"Hay sitio", warn:"Casi lleno (>70 %)", crit:"Lleno", nd:"Sin datos",
+    real:"EN VIVO", sim:"simulado (demo)", dentro:"Temperatura dentro", calle:"Temperatura en la calle", libres:"Plazas libres", dist:"A pie", min:"min",
+    como:"Cómo llegar", comoMsg:"Navegación no disponible en la demo.", selecciona:"Toca un refugio del mapa para ver su ficha.",
+    nosit:"No hay ningún refugio con sitio ahora mismo.", conectado:"en vivo", desconectado:"sin conexión; reintentando…",
+    gano:"Dentro se está", gradosMenos:"°C menos que en la calle", alerta:"Aviso",
+    pie:"R1 (Pl. Catalunya) se alimenta en vivo del sistema. Los otros 5 refugios son datos simulados de la demo. Toca el mapa para mover tu posición." },
+  ca: { titulo:"OASI · Refugis a prop teu", cerca:"El més proper amb lloc", tu:"Tu", ok:"Hi ha lloc", warn:"Gairebé ple (>70 %)", crit:"Ple", nd:"Sense dades",
+    real:"EN DIRECTE", sim:"simulat (demo)", dentro:"Temperatura a dins", calle:"Temperatura al carrer", libres:"Places lliures", dist:"A peu", min:"min",
+    como:"Com arribar-hi", comoMsg:"Navegació no disponible a la demo.", selecciona:"Toca un refugi del mapa per veure'n la fitxa.",
+    nosit:"Ara mateix no hi ha cap refugi amb lloc.", conectado:"en directe", desconectado:"sense connexió; reintentant…",
+    gano:"A dins fa", gradosMenos:"°C menys que al carrer", alerta:"Avís",
+    pie:"R1 (Pl. Catalunya) s'alimenta en directe del sistema. Els altres 5 refugis són dades simulades de la demo. Toca el mapa per moure la teva posició." },
+  en: { titulo:"OASI · Shelters near you", cerca:"Nearest with space", tu:"You", ok:"Space available", warn:"Almost full (>70 %)", crit:"Full", nd:"No data",
+    real:"LIVE", sim:"simulated (demo)", dentro:"Temperature inside", calle:"Street temperature", libres:"Free spots", dist:"On foot", min:"min",
+    como:"Get directions", comoMsg:"Navigation is not available in the demo.", selecciona:"Tap a shelter on the map to see its details.",
+    nosit:"No shelter has space right now.", conectado:"live", desconectado:"offline; retrying…",
+    gano:"Inside it is", gradosMenos:"°C cooler than the street", alerta:"Notice",
+    pie:"R1 (Pl. Catalunya) is fed live by the system. The other 5 shelters are simulated demo data. Tap the map to move your position." }
+};
+const BARRIOS = [["Ciutat Vella",150,250],["Eixample",200,178],["Gràcia",160,112],["Sants",38,200],["Sant Martí",293,128],["Nou Barris",190,40],["Sarrià-St Gervasi",72,100]];
+const GLIFO = {ok:"✓", warn:"!", crit:"✕", nd:"?"};
+const M_POR_UNIDAD = 22, FACTOR_CALLE = 1.3, M_MIN = 80;
+
+// aforo máx = módulos del kit × aforo del módulo (de /api/kits; constantes si falla)
+const KIT_FALLBACK = {parada_bus:2, terraza_comunitaria:6, terraza_privada:1};
+let KITS = {...KIT_FALLBACK}, AFORO_MOD = 10;
+const R = [
+  {id:"R1", nombre:"Pl. Catalunya",   x:165, y:205, kit:"parada_bus", real:true, aforo:null, temp:null, ext:null, alerta:null},
+  {id:"S2", nombre:"Sagrada Família", x:205, y:105, kit:"terraza_comunitaria", real:false, aforo:47, temp:27.4, ext:35.8},
+  {id:"S3", nombre:"Glòries",         x:238, y:142, kit:"parada_bus", real:false, aforo:20, temp:28.1, ext:36.4},
+  {id:"S4", nombre:"Sants Estació",   x:72,  y:222, kit:"parada_bus", real:false, aforo:6,  temp:26.2, ext:35.1},
+  {id:"S5", nombre:"Pl. Espanya",     x:98,  y:268, kit:"terraza_comunitaria", real:false, aforo:21, temp:26.8, ext:35.5},
+  {id:"S6", nombre:"Fabra i Puig",    x:252, y:62,  kit:"terraza_privada", real:false, aforo:8,  temp:27.9, ext:36.0}
+];
+let lang = (navigator.language || "es").slice(0, 2); if (!I18N[lang]) lang = "es";
+let tu = {x:135, y:185}, sel = "R1", rutaA = null, wsOk = false;
+const t = k => I18N[lang][k];
+const maxAforo = r => (KITS[r.kit] || KIT_FALLBACK[r.kit]) * AFORO_MOD;
+const libres = r => r.aforo == null ? null : Math.max(0, maxAforo(r) - r.aforo);
+function estado(r){ if (r.aforo == null) return "nd"; const f = r.aforo / maxAforo(r); return f >= 1 ? "crit" : f > 0.7 ? "warn" : "ok"; }
+const dist = r => Math.hypot(r.x - tu.x, r.y - tu.y);
+const metros = r => Math.round(dist(r) * M_POR_UNIDAD * FACTOR_CALLE / 10) * 10;
+const NS = "http://www.w3.org/2000/svg";
+const fmt = v => v == null ? "—" : v.toFixed(1) + " °C";
+
+function dibujar(){
+  document.documentElement.lang = lang;
+  document.getElementById("t_titulo").textContent = t("titulo");
+  document.getElementById("btnCerca").textContent = "📍 " + t("cerca");
+  document.getElementById("pie").textContent = t("pie");
+  document.getElementById("net").textContent = wsOk ? "● " + t("conectado") : "○ " + t("desconectado");
+  document.getElementById("barrios").innerHTML = BARRIOS.map(b => `<text class="barrio" x="${b[1]}" y="${b[2]}">${b[0]}</text>`).join("");
+  document.getElementById("leyenda").innerHTML = ["ok","warn","crit","nd"].map(e => `<span class="estado ${e}">${GLIFO[e]} ${t(e)}</span>`).join("");
+  document.getElementById("tu").setAttribute("transform", `translate(${tu.x},${tu.y})`);
+  document.getElementById("t_tu").textContent = t("tu");
+  const pins = document.getElementById("pins"); pins.innerHTML = "";
+  for (const r of R){
+    const e = estado(r), g = document.createElementNS(NS, "g");
+    g.setAttribute("class", `pin ${e}${sel === r.id ? " sel" : ""}`);
+    g.setAttribute("transform", `translate(${r.x},${r.y})`);
+    g.setAttribute("role", "button"); g.setAttribute("tabindex", "0");
+    g.setAttribute("aria-label", `${r.nombre}: ${t(e)}`);
+    g.innerHTML = `<circle class="ring" r="19"/><circle class="c" r="12"/><text class="glifo" y="5">${GLIFO[e]}</text><text class="nombre" y="26">${r.nombre}</text><circle r="22" fill="transparent"/>`;
+    g.addEventListener("click", ev => { ev.stopPropagation(); sel = r.id; rutaA = null; dibujar(); });
+    g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { sel = r.id; rutaA = null; dibujar(); } });
+    pins.appendChild(g);
+  }
+  const a = R.find(r => r.id === rutaA);
+  document.getElementById("ruta").setAttribute("d", a ? `M${tu.x},${tu.y} L${a.x},${a.y}` : "");
+  ficha();
+}
+function ficha(){
+  const el = document.getElementById("ficha"), r = R.find(x => x.id === sel);
+  if (!r){ el.innerHTML = `<p style="margin:0;color:var(--text-2)">${t("selecciona")}</p>`; return; }
+  const e = estado(r), l = libres(r), m = metros(r), mins = Math.max(1, Math.round(m / M_MIN));
+  const dif = (r.temp != null && r.ext != null) ? r.ext - r.temp : null;
+  el.innerHTML = `<h2>${r.nombre} <span class="tag ${r.real ? "real" : "sim"}">${r.real ? "● " + t("real") : t("sim")}</span></h2>
+    <span class="estado ${e}">${GLIFO[e]} ${t(e)}</span>
+    ${r.alerta ? `<div class="alerta">⚠ ${t("alerta")}: ${r.alerta}</div>` : ""}
+    <dl>
+      <dt>${t("dentro")}</dt><dd>${fmt(r.temp)}</dd>
+      <dt>${t("calle")}</dt><dd>${fmt(r.ext)}</dd>
+      <dt>${t("libres")}</dt><dd>${l == null ? "—" : l + " / " + maxAforo(r)}</dd>
+      <dt>${t("dist")}</dt><dd>${m} m · ~${mins} ${t("min")}</dd>
+    </dl>
+    ${dif != null && dif > 0 ? `<p style="margin:0 0 10px;color:var(--ok);font-weight:600">${t("gano")} ${dif.toFixed(1)} ${t("gradosMenos")}</p>` : ""}
+    <button class="primary" id="btnComo">${t("como")}</button>`;
+  document.getElementById("btnComo").onclick = () => alert(`${t("como")}: ${r.nombre} (${m} m)\n${t("comoMsg")}`);
+}
+document.getElementById("btnCerca").onclick = () => {
+  const c = R.filter(r => { const e = estado(r); return e === "ok" || e === "warn"; }).sort((a, b) => dist(a) - dist(b))[0];
+  if (!c){ alert(t("nosit")); return; }
+  sel = c.id; rutaA = c.id; dibujar();
+};
+document.getElementById("mapa").addEventListener("click", ev => {
+  const svg = ev.currentTarget, p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY;
+  const q = p.matrixTransform(svg.getScreenCTM().inverse()); tu = {x: q.x, y: q.y}; rutaA = null; dibujar();
+});
+document.getElementById("lang").onchange = ev => { lang = ev.target.value; dibujar(); };
+document.getElementById("lang").value = lang;
+
+fetch("/api/kits").then(r => r.ok ? r.json() : Promise.reject()).then(d => {
+  if (d.modulo && d.modulo.aforo) AFORO_MOD = d.modulo.aforo;
+  for (const k of d.kits || []) if (k.id && k.modulos) KITS[k.id] = k.modulos;
+  dibujar();
+}).catch(() => {});
+
+// R1 = el único refugio real: eventos del WebSocket
+const r1 = R[0], alertasR1 = {};
+function evento(ev){
+  if (ev.refugio !== "R1") return;
+  const v = ev.valor;
+  if (ev.tipo === "temp" && typeof v === "number") r1.temp = v;
+  else if (ev.tipo === "temp_ext" && typeof v === "number") r1.ext = v;
+  else if (ev.tipo === "aforo" && typeof v === "number") r1.aforo = v;
+  else if (ev.tipo === "alerta" && v && v.codigo){
+    if (v.nivel === "info") delete alertasR1[v.codigo]; else alertasR1[v.codigo] = v.mensaje || v.codigo;
+    r1.alerta = Object.values(alertasR1).join(" · ") || null;
+  } else return;
+  dibujar();
+}
+function conectar(){
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => { wsOk = true; dibujar(); };
+  ws.onclose = () => { wsOk = false; dibujar(); setTimeout(conectar, 2000); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = m => { try { evento(JSON.parse(m.data)); } catch (e) {} };
+}
+dibujar(); conectar();
+</script>
+</body>
+</html>
