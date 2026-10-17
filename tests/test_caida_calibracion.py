@@ -190,7 +190,7 @@ async def test_estado_vivo_de_pie_suelo_caida():
 
 async def test_caida_de_camara_dispara_alerta_y_evento_igual_que_la_simulada():
     """FuentePose -> bus -> MotorReglas: mismo evento `caida` que consumen
-    panel.js/twin2.js (robot acude) y la misma alerta crítica que pose_sim."""
+    panel.js/twin2.js (robot acude) y la misma alerta de aviso `caida` que pose_sim."""
     bus = Bus()
     bus.enlazar_loop(asyncio.get_running_loop())
     motor = MotorReglas(bus, avisar=lambda *a: None)
@@ -205,7 +205,7 @@ async def test_caida_de_camara_dispara_alerta_y_evento_igual_que_la_simulada():
     caidas = [e for e in vistos if e.tipo == "caida"]
     assert [(e.valor, e.refugio) for e in caidas] == [(True, "R1")]
     al = [e.valor for e in vistos if e.tipo == "alerta"]
-    assert al and al[-1]["nivel"] == "critico" and al[-1]["codigo"] == "desmayo"
+    assert al and al[-1]["nivel"] == "aviso" and al[-1]["codigo"] == "caida"
 
 
 # -- API -------------------------------------------------------------------
