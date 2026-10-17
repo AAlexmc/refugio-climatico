@@ -189,7 +189,7 @@ const CUPULAS = {   // material de la cubierta (datos/kits.json § materiales_cu
 };
 export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conArbol = true,
                                           cubierta = 'vidrio_control_solar', etiquetas = true, tipo = 'cupula' } = {}) {
-  // tipo: 'cupula' (módulos con bóveda) | 'arbol_solar' | 'jardin' (jardín vertical + pérgola FV) | 'banco_solar'
+  // tipo: 'cupula' (módulos con bóveda) | 'marquesina' (parada bioclimática 6 x 2,2 m) | 'arbol_solar' | 'jardin' | 'banco_solar'
   const esCupula = tipo === 'cupula';
   if (!esCupula) n = 1;
   const cup = CUPULAS[cubierta] || CUPULAS.vidrio_control_solar;
@@ -204,6 +204,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   }
   const filasCol = Array.from({ length: cols }, (_, c) => modulos.filter(m => m.col === c).length);
   const limites = esCupula ? { minX: -cols * R, maxX: cols * R, minZ: -filas * LADO, maxZ: 0 }
+                           : tipo === 'marquesina' ? { minX: -2.9, maxX: 2.9, minZ: -2.1, maxZ: 0 }
                            : { minX: -3, maxX: 3, minZ: -6, maxZ: 0 };
 
   // --- materiales ---
@@ -304,7 +305,9 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
   const luzAC = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), new THREE.MeshBasicMaterial({ color: 0x333333 }));
   luzAC.position.set(0.26, 0.52, 0.3);
   ac.add(aspas, luzAC);
-  ac.scale.setScalar(0.8); ac.position.set(limites.maxX + 0.35, 0, limites.minZ + 0.8); g.add(ac);
+  ac.scale.setScalar(0.8);
+  if (tipo === 'marquesina') ac.position.set(4.3, 0, -1.9); else ac.position.set(limites.maxX + 0.35, 0, limites.minZ + 0.8);
+  g.add(ac);
 
   const bat = new THREE.Group();
   const caja = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 1.1), new THREE.MeshStandardMaterial({ color: 0x2c3a36, roughness: 0.6 }));
@@ -419,7 +422,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     for (let k = 0; k < 4; k++) toberasNeb.push({ x: x + (k / 3 - 0.5) * (w - 0.6), z, y: h - 0.15 });
     return pg;
   }
-  if (!esCupula) {
+  if (!esCupula && tipo !== 'marquesina') {
     const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 0.1, 48), mSuelo); plat.position.set(0, -0.05, -3); plat.receiveShadow = true; g.add(plat);
   }
   if (tipo === 'arbol_solar') {
@@ -467,7 +470,83 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
       v[i] = (Math.random() - 0.5) * 0.05; v[i + 1] = 1.1 + Math.random() * 0.15; v[i + 2] = 0.55 + Math.random() * 0.08; } });
     g.add(ch.pts); extrasUpd.push(dt => ch.update(dt, true));
   }
-  if (esCupula) fuente(limites.minX - 0.9, -1.6); else fuente(2.7, -0.8);
+  if (tipo === 'marquesina') {
+    // Parada bioclimática (diseño del equipo): vidrio con enredaderas, techo solar con cámara de aire,
+    // huecos abajo/arriba para el efecto chimenea, cámara IA y rociadores que se activan con personas.
+    const Z = -1.1;                                   // centro en profundidad (frente abierto en z = 0)
+    const bx = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      o.position.set(x, y, z + Z); o.castShadow = o.receiveShadow = true; g.add(o); return o; };
+    const cil = (r, h, m, x, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 12), m);
+      o.position.set(x, y, z + Z); o.castShadow = true; g.add(o); return o; };
+    const mCristal = new THREE.MeshPhysicalMaterial({ color: 0xbfe8f0, transparent: true, opacity: 0.26, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false });
+    const mMadera = new THREE.MeshStandardMaterial({ color: 0x9a6b3f, roughness: 0.7 });
+    bx(9, 0.15, 5, new THREE.MeshStandardMaterial({ color: 0xb9bdb8, roughness: 0.9 }), 0, -0.04, 0.3);
+    [-3, -1, 1, 3].forEach(x => bx(0.08, 2.75, 0.08, mEstruct, x, 1.375, -1.1));
+    [-3, 3].forEach(x => bx(0.08, 2.75, 0.08, mEstruct, x, 1.375, 1.1));
+    bx(6.2, 0.1, 2.6, mEstruct, 0, 2.78, 0.1);
+    bx(6, 2.2, 0.03, mCristal, 0, 1.4, -1.1);                     // hueco abajo y arriba: circula el aire
+    [-3, 3].forEach(x => bx(0.03, 2.2, 2.2, mCristal, x, 1.4, 0));
+    [-2, 0, 2].forEach(x => bx(0.04, 2.2, 0.05, mEstruct, x, 1.4, -1.1));
+    const mSol = new THREE.MeshStandardMaterial({ map: texFV(3, 4), roughness: 0.25, metalness: 0.5, emissive: 0x3a7bff, emissiveIntensity: 0 });
+    mFV.push(mSol);
+    [-2, 0, 2].forEach(x => { const p = bx(1.9, 0.06, 2.4, mSol, x, 3.12, 0.1); p.rotation.x = 0.14;
+      [-0.9, 0.9].forEach(z => [-0.8, 0.8].forEach(dx => cil(0.025, 0.3, mEstruct, x + dx, 2.95, z * 0.9 + 0.1))); });
+    // enredaderas sobre el vidrio + jardineras
+    const rnd = aleatorio(7), hojas = [];
+    const tira = (x, z, top, len) => { for (let y = top; y > top - len; y -= 0.11) hojas.push([x + (rnd() - 0.5) * 0.08, y, z + (rnd() - 0.5) * 0.08, 0.06 + rnd() * 0.07]); };
+    for (let x = -2.9; x <= 2.9; x += 0.2) { tira(x, -1.18, 2.55, 1 + rnd() * 1.4); tira(x + 0.1, -1.02, 2.55, 0.6 + rnd() * 1.1); }
+    [-1, 1].forEach(sx => { for (let z = -1; z <= 1; z += 0.25) tira(sx * 3.07, z, 2.55, 0.8 + rnd() * 1.5); });
+    for (let x = -3; x <= 3; x += 0.3) tira(x, 1.28, 2.72, 0.2 + rnd() * 0.5);
+    const mMac = new THREE.MeshStandardMaterial({ color: 0x5a4636, roughness: 0.9 });
+    [[0, -1.3, 5.8, 0.4], [-3.2, 0, 0.4, 2], [3.2, 0, 0.4, 2]].forEach(a => bx(a[2], 0.4, a[3], mMac, a[0], 0.2, a[1]));
+    for (let i = 0; i < 150; i++) { const r = rnd(), q = Math.floor(rnd() * 3);
+      const pp = q === 0 ? [(r - 0.5) * 5.6, 0.45 + rnd() * 0.25, -1.3] : [q === 1 ? -3.2 : 3.2, 0.45 + rnd() * 0.25, (r - 0.5) * 1.8];
+      hojas.push([pp[0], pp[1], pp[2], 0.1 + rnd() * 0.1]); }
+    const inst = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), hojas.length);
+    inst.castShadow = true;
+    const dmy = new THREE.Object3D(), col = new THREE.Color();
+    hojas.forEach((h, i) => { dmy.position.set(h[0], h[1], h[2] + Z); dmy.scale.set(h[3] * 1.1, h[3] * 0.8, h[3] * 0.35);   // hoja aplanada
+      dmy.rotation.set((rnd() - 0.5) * 1.2, (rnd() - 0.5) * 1.2, rnd() * Math.PI); dmy.updateMatrix(); inst.setMatrixAt(i, dmy.matrix);
+      col.setHSL(0.26 + rnd() * 0.08, 0.6, 0.12 + rnd() * 0.12); inst.setColorAt(i, col); });
+    g.add(inst);
+    // banco y señal
+    bx(3.4, 0.06, 0.42, mMadera, 0, 0.5, -0.8); bx(3.4, 0.4, 0.05, mMadera, 0, 0.8, -0.98);
+    [-1.5, 1.5].forEach(x => bx(0.05, 0.5, 0.35, mEstruct, x, 0.25, -0.8));
+    cil(0.04, 2.6, mEstruct, 3.6, 1.3, 1.2);
+    const sc = document.createElement('canvas'); sc.width = sc.height = 128; const s2 = sc.getContext('2d');
+    s2.fillStyle = '#d9322d'; s2.fillRect(0, 0, 128, 128); s2.fillStyle = '#fff'; s2.font = 'bold 56px sans-serif'; s2.textAlign = 'center'; s2.fillText('BUS', 64, 82);
+    bx(0.5, 0.5, 0.03, new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(sc) }), 3.6, 2.35, 1.2);
+    // cámara IA + campo de visión (verde con personas dentro)
+    const domo = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 8, 0, Math.PI * 2, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8 }));
+    domo.rotation.x = Math.PI; domo.position.set(0, 2.73, 0.3 + Z); g.add(domo);
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff3b30 })); led.position.set(0.1, 2.68, 0.3 + Z); g.add(led);
+    const fov = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.5, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xffcc33, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false }));
+    fov.position.set(0, 1.45, 0.3 + Z); g.add(fov);
+    // tubería y 8 boquillas de nebulización (las usa el chorro del nebulizador)
+    cil(0.02, 5.4, mEstruct, 0, 2.68, 0.95).rotation.z = Math.PI / 2;
+    for (let i = 0; i < 8; i++) { const x = -2.45 + i * 0.7; cil(0.025, 0.07, new THREE.MeshStandardMaterial({ color: 0xc0c8cc, metalness: 0.9 }), x, 2.64, 0.95);
+      toberasNeb.push({ x, z: 0.95 + Z, y: 2.6 }); }
+    // corriente de aire (efecto chimenea): entra abajo por detrás, sale por la cámara del techo
+    const NA = 140, ag = new THREE.BufferGeometry(); ag.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NA * 3), 3));
+    const aire = new THREE.Points(ag, new THREE.PointsMaterial({ color: 0x2d9cff, size: 0.08, transparent: true, opacity: 0.9, depthWrite: false }));
+    aire.frustumCulled = false; g.add(aire);
+    const aph = Array.from({ length: NA }, () => [rnd(), -2.9 + rnd() * 5.8, (rnd() - 0.5) * 0.7]);
+    const bez = (a, b, c, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * b + t * t * c;
+    let T = 0;
+    extrasUpd.push(dt => {
+      T += dt;
+      const fluye = est.ventilador || est.claraboya > 0 || !est.ac;   // ventilación pasiva salvo con AC cerrado
+      aire.visible = fluye;
+      if (fluye) { const a = ag.attributes.position;
+        for (let i = 0; i < NA; i++) { const q = aph[i], t = (q[0] + T * 0.12) % 1;
+          a.setXYZ(i, q[1] + Math.sin(t * 6 + i) * 0.05, bez(0.3, 0.6, 3.35, t), bez(-1.7, -0.2, 0.5, t) + q[2] * 0.3 + Z); }
+        a.needsUpdate = true; }
+      const hay = avatares.size > 0;
+      led.material.color.set(hay ? 0x2eff7a : 0xff3b30);
+      fov.material.color.set(hay ? 0x2eff7a : 0xffcc33); fov.material.opacity = hay ? 0.14 : 0.07;
+    });
+  }
+  if (esCupula) fuente(limites.minX - 0.9, -1.6); else if (tipo === 'marquesina') fuente(-3.9, -0.4); else fuente(2.7, -0.8);
 
   // --- luz interior (noche) ---
   const luzInt = new THREE.PointLight(0xffc27a, 0, 8); luzInt.position.set(0, TOPE - 0.4, (limites.minZ + limites.maxZ) / 2);
