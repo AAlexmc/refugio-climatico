@@ -52,7 +52,7 @@ suelo.rotation.x = -Math.PI / 2; suelo.position.y = -0.11; scene.add(suelo);
 
 function reconstruir() {
   refugio?.dispose();
-  refugio = construirRefugio(scene, { kit, n });
+  refugio = construirRefugio(scene, { tipo: 'pabellon', largo: 2 * (Math.min(5, n) + 1), ancho: 2.4 });   // solo Pabellón Venturi
   refugio.set({ claraboya: 0.5, solar: 600 * n, bateria: 75, temp: 25, ac: true });
   controls.target.copy(refugio.centro);
   const d = Math.max(9, n * 1.8 + 6);

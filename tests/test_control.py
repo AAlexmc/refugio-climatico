@@ -130,7 +130,9 @@ def test_claraboya_parcial():
     assert cmds(vistos, "claraboya")[-1] == 0.6
     medir(bus, temp_ext=25.0)                             # exactamente 3
     assert cmds(vistos, "claraboya")[-1] == 1.0
-    medir(bus, temp_ext=27.5)                             # < 1 °C: cerrada
+    medir(bus, temp_ext=27.5)                             # casi igual que dentro: aún refresca (aire en movimiento)
+    assert cmds(vistos, "claraboya")[-1] == 0.6
+    medir(bus, temp_ext=28.5)                             # fuera ≥ 28 °C: cerrar y usar AC
     assert cmds(vistos, "claraboya")[-1] == 0.0
 
 
