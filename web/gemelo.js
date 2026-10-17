@@ -115,9 +115,10 @@ const AFORO_MOD = 10, KWP_MOD = 0.8, KWH_MOD = 2.5;
 function pintarCfg() {
   $('c_tipo').value = cfg.tipo; $('c_lugar').value = cfg.lugar; $('c_kit').value = cfg.kit; $('c_cub').value = cfg.cubierta; $('c_arbol').checked = cfg.arbol;
   $('c_n').textContent = cfg.n;
-  const cup = cfg.tipo === 'cupula';
-  for (const id of ['l_kit', 'l_n', 'l_cub', 'l_arb']) $(id).style.display = cup ? '' : 'none';
-  const n = cup ? cfg.n : 1;
+  const cup = cfg.tipo === 'cupula', pab = cfg.tipo === 'pabellon';
+  for (const id of ['l_kit', 'l_cub', 'l_arb']) $(id).style.display = cup ? '' : 'none';
+  $('l_n').style.display = cup || pab ? '' : 'none';
+  const n = cup ? cfg.n : pab ? Math.min(3, cfg.n) : 1;
   $('c_info').textContent = `Aforo ${n * AFORO_MOD} · FV ${(n * KWP_MOD + (cup && cfg.arbol || cfg.tipo === 'arbol_solar' ? 1.5 : 0)).toFixed(1)} kWp · batería ${(n * KWH_MOD).toFixed(1)} kWh`;
 }
 function cambiar(p) { cfg = { ...cfg, ...p }; cfg.n = Math.max(1, Math.min(8, cfg.n)); construir(); pintarCfg(); }

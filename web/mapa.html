@@ -155,10 +155,11 @@ const R = [
   {id:"S4", nombre:"Sants Estació",   x:72,  y:222, kit:"parada_bus", tipo:"arbol_solar", n:1, arbol:true, cubierta:"vidrio_control_solar", real:false, aforo:6,  temp:29.0, ext:35.1},
   {id:"S5", nombre:"Pl. Espanya",     x:98,  y:268, kit:"terraza_comunitaria", n:4, arbol:true, cubierta:"policarbonato_opal_ir", real:false, aforo:21, temp:26.8, ext:35.5},
   {id:"S6", nombre:"Fabra i Puig",    x:252, y:62,  kit:"terraza_privada", tipo:"jardin", n:1, arbol:false, cubierta:"etfe_3_capas_frit", real:false, aforo:8,  temp:28.4, ext:36.0},
+  {id:"S8", nombre:"Pl. Universitat", x:142, y:226, kit:"terraza_comunitaria", lugar:"plaza", tipo:"pabellon", n:2, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:11, temp:28.0, ext:36.1},
   {id:"S7", nombre:"Pl. del Sol",     x:150, y:122, kit:"terraza_privada", tipo:"banco_solar", n:1, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:4,  temp:30.2, ext:35.9}
 ];
 const KIT_NOMBRE = {parada_bus:"Parada de bus", terraza_comunitaria:"Terraza comunitaria", terraza_privada:"Terraza privada"};
-const TIPO_NOMBRE = {marquesina:"Marquesina bioclimática 6 × 2,2 m (vidrio con enredaderas, techo solar, chimenea, rociadores con cámara IA)", arbol_solar:"Árbol solar con nebulización", jardin:"Jardín vertical con pérgola solar", banco_solar:"Banco de piedra con placas solares"};
+const TIPO_NOMBRE = {pabellon:"Pabellón Venturi 6 m (techo semicircular, extractores, puertas entrada/salida)", marquesina:"Marquesina bioclimática 6 × 2,2 m (vidrio con enredaderas, techo solar, chimenea, rociadores con cámara IA)", arbol_solar:"Árbol solar con nebulización", jardin:"Jardín vertical con pérgola solar", banco_solar:"Banco de piedra con placas solares"};
 const CUB_NOMBRE = {vidrio_control_solar:"vidrio control solar", etfe_3_capas_frit:"ETFE serigrafiado", policarbonato_opal_ir:"policarbonato opal"};
 let lang = (navigator.language || "es").slice(0, 2); if (!I18N[lang]) lang = "es";
 let tu = {x:135, y:185}, sel = new URLSearchParams(location.search).get("sel") || "R1", rutaA = null, wsOk = false;
