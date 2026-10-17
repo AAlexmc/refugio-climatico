@@ -180,7 +180,14 @@ function nuevoRig(base, escala) {
 
 function aleatorio(semilla) { let s = semilla; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
-export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
+const CUPULAS = {   // material de la cubierta (datos/kits.json § materiales_cubierta)
+  vidrio_control_solar: { color: 0xcfeee0, transmission: 0.9, roughness: 0.05, att: 0x9fe0c0 },
+  etfe_3_capas_frit: { color: 0xeaf4ff, transmission: 0.7, roughness: 0.25, att: 0xd0e4ff },
+  policarbonato_opal_ir: { color: 0xf4f1e6, transmission: 0.45, roughness: 0.55, att: 0xffffff },
+};
+export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conArbol = true,
+                                          cubierta = 'vidrio_control_solar', etiquetas = true } = {}) {
+  const cup = CUPULAS[cubierta] || CUPULAS.vidrio_control_solar;
   n = Math.max(1, Math.min(8, Math.round(n)));
   const g = new THREE.Group(); g.name = 'refugio';
   const cols = kit === 'terraza_comunitaria' ? 2 : 1;
@@ -194,8 +201,8 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
   const limites = { minX: -cols * R, maxX: cols * R, minZ: -filas * LADO, maxZ: 0 };
 
   // --- materiales ---
-  const mVidrio = new THREE.MeshPhysicalMaterial({ color: 0xcfeee0, transmission: 0.9, roughness: 0.05,
-    thickness: 0.08, ior: 1.45, transparent: true, side: THREE.DoubleSide, attenuationColor: new THREE.Color(0x9fe0c0),
+  const mVidrio = new THREE.MeshPhysicalMaterial({ color: cup.color, transmission: cup.transmission, roughness: cup.roughness,
+    thickness: 0.08, ior: 1.45, transparent: true, side: THREE.DoubleSide, attenuationColor: new THREE.Color(cup.att),
     attenuationDistance: 3 });
   const mEstruct = new THREE.MeshStandardMaterial({ color: 0x3c4a44, metalness: 0.7, roughness: 0.4 });
   const mSuelo = new THREE.MeshStandardMaterial({ map: texTarima(), roughness: 0.8 });
@@ -335,7 +342,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
     }
   });
   // --- árbol solar: el árbol del modelo (o tronco procedural) con una copa de placas FV encima ---
-  const arbol = new THREE.Group();
+  const arbol = new THREE.Group(); arbol.visible = conArbol;
   arbol.position.set(limites.maxX + 3.2, 0, limites.minZ + 1.5); g.add(arbol);
   const ALTO_ARBOL = 3.6;
   const troncoProc = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.3, ALTO_ARBOL, 12), new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.9 }));
@@ -350,7 +357,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
     const barra = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.8), mEstruct); barra.position.set(0, -0.05, 0.9);
     brazo.add(pan, barra); copaFV.add(brazo);
   }
-  cargarGLB('parada').then(base => {
+  if (conArbol) cargarGLB('parada').then(base => {
     if (!base || !vivo) return;
     const mod = colocarModelo(base, { alto: ALTO_ARBOL + 0.2 });
     mod.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -407,7 +414,7 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2 } = {}) {
     dorso.traverse(o => { if (o.isMesh) o.castShadow = true; });
     grupo.add(dorso);
     grupo.rotation.y = r() * Math.PI * 2;
-    const etiqueta = crearEtiqueta(`Persona ${p.id ?? idx + 1}`); etiqueta.position.set(0, 2.05, 0);
+    const etiqueta = crearEtiqueta(`Persona ${p.id ?? idx + 1}`); etiqueta.position.set(0, 2.05, 0); etiqueta.visible = etiquetas;
     grupo.add(etiqueta);
     g.add(grupo);
     const a = { grupo, dorso, proc, mat, k, etiqueta, objetivo: new THREE.Vector3(), rotX: 0, escY: 1, nuevo: true, id: p.id,
