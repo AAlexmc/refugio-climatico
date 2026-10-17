@@ -42,7 +42,7 @@ function construir() {
   if (typeof aplicarSol === 'function') setTimeout(aplicarSol, 600);
   controls.target.copy(refugio.centro);
   const d = Math.max(8, cfg.n * 2.2 + 4);
-  camera.position.set(d * 0.9, d * 0.6, d * 0.5 + 2);
+  if (cfg.tipo === 'pergola') camera.position.set(-6, 2.8, 10); else camera.position.set(d * 0.9, d * 0.6, d * 0.5 + 2);
 }
 construir();
 

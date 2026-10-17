@@ -156,10 +156,11 @@ const R = [
   {id:"S5", nombre:"Pl. Espanya",     x:98,  y:268, kit:"terraza_comunitaria", n:4, arbol:true, cubierta:"policarbonato_opal_ir", real:false, aforo:21, temp:26.8, ext:35.5},
   {id:"S6", nombre:"Fabra i Puig",    x:252, y:62,  kit:"terraza_privada", tipo:"jardin", n:1, arbol:false, cubierta:"etfe_3_capas_frit", real:false, aforo:8,  temp:28.4, ext:36.0},
   {id:"S8", nombre:"Pl. Universitat", x:142, y:226, kit:"terraza_comunitaria", lugar:"plaza", tipo:"pabellon", n:2, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:11, temp:28.0, ext:36.1},
+  {id:"S9", nombre:"Pl. de la Vila de Gràcia", x:176, y:150, kit:"terraza_comunitaria", lugar:"plaza", tipo:"pergola", n:2, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:12, temp:28.6, ext:35.7},
   {id:"S7", nombre:"Pl. del Sol",     x:150, y:122, kit:"terraza_privada", tipo:"banco_solar", n:1, arbol:false, cubierta:"vidrio_control_solar", real:false, aforo:4,  temp:30.2, ext:35.9}
 ];
 const KIT_NOMBRE = {parada_bus:"Parada de bus", terraza_comunitaria:"Terraza comunitaria", terraza_privada:"Terraza privada"};
-const TIPO_NOMBRE = {pabellon:"Pabellón Venturi 6 m (techo semicircular, extractores, puertas entrada/salida)", marquesina:"Marquesina bioclimática 6 × 2,2 m (vidrio con enredaderas, techo solar, chimenea, rociadores con cámara IA)", arbol_solar:"Árbol solar con nebulización", jardin:"Jardín vertical con pérgola solar", banco_solar:"Banco de piedra con placas solares"};
+const TIPO_NOMBRE = {pergola:"Refugi climàtic: pérgola de madera con toldo tensado y núcleo de biblioteca", pabellon:"Pabellón Venturi 6 m (techo semicircular, extractores, puertas entrada/salida)", marquesina:"Marquesina bioclimática 6 × 2,2 m (vidrio con enredaderas, techo solar, chimenea, rociadores con cámara IA)", arbol_solar:"Árbol solar con nebulización", jardin:"Jardín vertical con pérgola solar", banco_solar:"Banco de piedra con placas solares"};
 const CUB_NOMBRE = {vidrio_control_solar:"vidrio control solar", etfe_3_capas_frit:"ETFE serigrafiado", policarbonato_opal_ir:"policarbonato opal"};
 let lang = (navigator.language || "es").slice(0, 2); if (!I18N[lang]) lang = "es";
 let tu = {x:135, y:185}, sel = new URLSearchParams(location.search).get("sel") || "R1", rutaA = null, wsOk = false;
@@ -302,7 +303,10 @@ function mostrar(r) {
   refugio.set({ temp: r.temp, solar: 900 * r.n, bateria: 70, ac: !r.tipo && (r.temp ?? 0) > 27, claraboya: 0, nebulizador: !!r.tipo });
   refugio.setPersonas(gente(r));
   const c = refugio.centro, d = Math.max(9, r.n * 2.6 + 6) * (r.arbol ? 1.15 : 1);
-  controls.target.copy(c); camera.position.set(c.x + d * 0.85, d * 0.55, c.z + d * 0.75); controls.autoRotate = true;
+  controls.target.copy(c);
+  if (r.tipo === 'pergola') camera.position.set(c.x - 6, 2.8, c.z + 12);   // bajo el toldo se ve el núcleo
+  else camera.position.set(c.x + d * 0.85, d * 0.55, c.z + d * 0.75);
+  controls.autoRotate = true;
 }
 function grande(on) { cont.classList.toggle('grande', on); requestAnimationFrame(ajustar); }
 document.getElementById('cerrar3d').onclick = () => grande(false);
