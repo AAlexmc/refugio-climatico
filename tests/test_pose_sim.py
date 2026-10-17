@@ -1,7 +1,7 @@
 import asyncio
 
 from nucleo.bus import Bus
-from sim.pose_sim import X_RANGO, Y_RANGO, FuentePoseSim
+from vision.pose_sim import X_RANGO, Y_RANGO, FuentePoseSim
 
 
 def test_esqueleto_forma_y_rangos():
@@ -61,7 +61,7 @@ async def test_correr_publica_pose_y_caida_en_bus():
 
 
 def test_forzar_caida_y_levantarse():
-    from sim.pose_sim import FuentePoseSim
+    from vision.pose_sim import FuentePoseSim
     from vision.caidas import cadera_z
     f = FuentePoseSim(periodo_caida=40.0)
     f._t = 5.0

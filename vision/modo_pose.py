@@ -1,7 +1,7 @@
 """Conmutador cámara / simulación del refugio.
 
 Cámara y pose_sim corren a la vez, pero cada una publica en un `BusFiltrado`
-que solo deja pasar `pose` y `caida` de la fuente activa. El resto de tipos
+que solo deja pasar `pose`, `caida`, `desmayo`, `aforo` y `personas` de la fuente activa. El resto de tipos
 (estado_fuente...) pasan siempre. Así el gemelo nunca recibe dos refugios y
 una caída de cada fuente va sincronizada con su propio esqueleto.
 
@@ -25,6 +25,7 @@ SIN_FRAMES_S = 5.0     # sin frames más de esto => cámara no disponible
 ENTRADA_S = 1.5        # para (re)entrar en cámara el último frame debe ser así de reciente
 GRACIA_S = 5.0         # tras arrancar, no avisar antes (la cámara tarda en abrir)
 PERIODO_S = 0.5
+FILTRADOS = ("pose", "caida", "desmayo", "aforo", "personas")
 
 
 class BusFiltrado:
@@ -69,7 +70,7 @@ class Conmutador:
     def _deja_pasar(self, rol: str, ev: Evento) -> bool:
         if rol == "camara" and ev.tipo == "pose":
             self._t_frame = self._reloj()     # cuenta como frame aunque esté filtrado
-        if ev.tipo in ("pose", "caida"):
+        if ev.tipo in FILTRADOS:
             return rol == self.efectivo
         return True
 

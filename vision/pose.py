@@ -19,6 +19,7 @@ import numpy as np
 from vision import calibracion
 from vision.caidas import (CADERA_D, CADERA_I, HOMBRO_D, HOMBRO_I, DetectorCaidas, Umbrales,
                             angulo_torso, cadera_z)
+from vision.desmayo import DetectorDesmayo, cadera_xy
 from vision.marco import MarcoHabitacion, webcam_a_camara
 from nucleo.bus import Bus
 from nucleo.evento import Evento
@@ -130,11 +131,26 @@ def a_camara_realsense(lm_norm: np.ndarray, cuadro: Cuadro) -> np.ndarray | None
     return np.stack([(u - cx) * zs / fx, (v - cy) * zs / fy, zs], axis=1)
 
 
+def persona_cercana(gente: list[dict], xy, radio: float = 1.0) -> int | None:
+    """Id de la persona etiquetada más cercana a la cadera del esqueleto."""
+    if xy is None:
+        return None
+    mejor, dmin = None, radio
+    for p in gente:
+        if p.get("x") is None or p.get("id") is None:
+            continue
+        d = ((p["x"] - xy[0]) ** 2 + (p["y"] - xy[1]) ** 2) ** 0.5
+        if d < dmin:
+            mejor, dmin = p["id"], d
+    return mejor
+
+
 class FuentePose:
     def __init__(self, camara: str = "realsense", *, fps: int = 10, captura=None,
                  estimador=None, marco: MarcoHabitacion | None = None, reloj=time.monotonic,
                  refugio: str = "R1", ver: bool = False,
-                 calibracion_ruta=None) -> None:
+                 calibracion_ruta=None, contar: bool = False, contador=None,
+                 desmayo: DetectorDesmayo | None = None) -> None:
         if camara not in ("realsense", "webcam"):
             raise ValueError(f"camara desconocida: {camara!r}")
         self.camara = camara
@@ -153,6 +169,12 @@ class FuentePose:
         self.vivo: dict = {"visible": False, "estado": "sin_persona", "cadera_z": None,
                            "angulo": None, "t": None}
         self._ultimos: list[list[float]] = [[0.0, 0.0, 0.0]] * 33
+        # aforo con la misma cámara (vision/aforo.py); contador inyectable en tests
+        self.contar = contar or contador is not None
+        self._contador = contador
+        self._aforo = None
+        self._gente: list[dict] = []
+        self._desmayo = desmayo or DetectorDesmayo()
 
     @property
     def umbrales(self) -> Umbrales:
@@ -206,8 +228,9 @@ class FuentePose:
                 self._parar.wait(REINTENTO_S)
                 continue
             self._estado(bus, True, self.camara)
+            cont = self._abrir_contador(bus) if self.contar else None
             try:
-                self._servir(bus, cap, est)
+                self._servir(bus, cap, est, cont)
             except Exception as e:
                 self._estado(bus, False, f"{self.camara}: {e}")
             finally:
@@ -215,9 +238,33 @@ class FuentePose:
                     self._cerrar(cap)
                 if self._estimador is None:
                     self._cerrar(est)
+                if self._contador is None:
+                    self._aforo = None
             if inyectada:  # una captura inyectada no se puede reabrir
                 return
             self._parar.wait(REINTENTO_S)
+
+    def _abrir_contador(self, bus: Bus):
+        """YOLO para el aforo; si falla, la pose sigue sola (y se avisa)."""
+        from vision.aforo import Aforo, ContadorYolo
+        self._aforo = Aforo()
+        if self._contador is not None:
+            return self._contador
+        try:
+            return ContadorYolo()
+        except Exception as e:
+            self._estado(bus, False, f"aforo: {e}")
+            return None
+
+    def _contar(self, bus: Bus, cuadro: Cuadro, cont):
+        from vision.aforo import personas
+        dets = cont(cuadro)
+        self._gente = personas(dets, cuadro, self.marco)
+        self._pub(bus, "personas", self._gente)
+        n = self._aforo.actualizar(self._reloj(), len(self._gente))
+        if n is not None:
+            self._pub(bus, "aforo", n)
+        return dets
 
     @staticmethod
     def _cerrar(obj) -> None:
@@ -227,7 +274,7 @@ class FuentePose:
         except Exception:
             pass
 
-    def _servir(self, bus: Bus, cap, est) -> None:
+    def _servir(self, bus: Bus, cap, est, cont=None) -> None:
         paso = 1.0 / self.fps
         siguiente = self._reloj()
         while not self._parar.is_set():
@@ -235,10 +282,12 @@ class FuentePose:
             if cuadro is None:
                 raise RuntimeError("sin frames")
             puntos = self._procesar(cuadro, est)
+            dets = self._contar(bus, cuadro, cont) if cont is not None else None
             if self.ver:
                 from vision.vista import VISTA, dibujar
                 VISTA.publicar(dibujar(cuadro.bgr, self._r, puntos, VISIBILIDAD_MIN,
-                                       cuadro.profundidad))
+                                       cuadro.profundidad,
+                                       None if dets is None else (dets, self._gente)))
             del cuadro  # el RGB no sale de aquí
             self._publicar(bus, self._reloj(), puntos)
             siguiente += paso
@@ -286,3 +335,7 @@ class FuentePose:
         cambio = self._detector.actualizar(t, puntos)
         if cambio is not None:
             self._pub(bus, "caida", cambio)
+        xy = cadera_xy(puntos) if puntos is not None else None
+        d = self._desmayo.actualizar(t, self._detector.caida, xy, persona_cercana(self._gente, xy))
+        if d is not None:
+            self._pub(bus, "desmayo", d)

@@ -1,7 +1,7 @@
 import math
 
 from vision.caidas import DetectorCaidas
-from sim.pose_sim import esqueleto
+from vision.pose_sim import esqueleto
 
 DT = 0.1
 

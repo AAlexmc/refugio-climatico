@@ -20,7 +20,7 @@ Ya tienes (reutilizado del proyecto anterior, con tests):
 ### Hito 1 (≤ 1 h): aforo real
 - `vision/aforo.py`: ultralytics YOLO (clase person) + `model.track(persist=True, tracker="bytetrack.yaml")`
   sobre el color de la RealSense; profundidad alineada → (x, z) en metros de cada persona.
-- Publica `aforo` (int) y `personas` (`[{"id", "x", "z", "etiqueta": "Persona 3"}]`) ~1 Hz.
+- Publica `aforo` (int) y `personas` (`[{"id", "x", "y", "etiqueta": "Persona 3", "estado"}]`) ~1 Hz.
 - Con `--ver-camara`, cajas + etiqueta dibujadas en `/camara.mjpg` (sin escribir a disco).
 - Una sola RealSense para pose + aforo: abrir el pipeline UNA vez y repartir frames
   (no dos `rs.pipeline()` sobre el mismo dispositivo).
@@ -34,7 +34,7 @@ Ya tienes (reutilizado del proyecto anterior, con tests):
 ### Hito 3: robustez demo
 - Imagen cortada (piernas fuera de cuadro) — pendiente del proyecto anterior.
 - Ensayar con 3–4 compañeros delante; ajustar umbrales en `/caida.html`.
-- Dejar `--pose realsense --aforo yolo --ver-camara` como arranque de la demo.
+- Dejar `--pose realsense --ver-camara` como arranque de la demo.
 
 ### Entregable para el pitch
 Vídeo/captura de `/camara.html` con cajas «Persona 1..n» y el panel mostrando aforo + alerta.
@@ -75,4 +75,11 @@ buzzer, protocolo JSON por USB — ver su README) y `captar/serial_bridge.py` (p
 - **Anonimizado visible**: en `/camara.html` difuminar caras por defecto (demuestra la privacidad).
 
 ## Estado
-- (actualiza aquí al cerrar cada hito)
+- 17-10 · 1A·H1 + H2 hechos (PR `o1/aforo`): `vision/aforo.py` YOLO26n + ByteTrack sobre el MISMO
+  cuadro de `FuentePose` (un solo pipeline RealSense), etiquetas «Persona N», estado por caja
+  (de_pie/sentado/suelo), posición por profundidad, filtro > 6 m (calle), suavizado del aforo,
+  cabezas difuminadas en `/camara.mjpg`. `vision/desmayo.py`: caída + inmóvil 5 s → `desmayo`
+  con id de la persona más cercana. `vision/sim_vision.py`: gente simulada con etiquetas (bancos,
+  autobús cada ~90 s, botón de aforo del panel) + Persona 1 que cae y se desmaya. El conmutador
+  cámara/sim también filtra aforo/personas/desmayo. Modelo: `modelos/yolo26n.pt` (no se sube).
+- Falta: probar con la RealSense conectada (USB 3), ajustar PROF_MAX_M al sitio real.

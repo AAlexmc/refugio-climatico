@@ -42,10 +42,21 @@ class Vista:
 VISTA = Vista()
 
 
-def dibujar(bgr: np.ndarray, r, puntos, vis_min: float, prof: np.ndarray | None = None) -> bytes:
-    """JPEG del cuadro con esqueleto, estado y miniatura de profundidad."""
+def jpeg(img: np.ndarray) -> bytes:
+    import cv2
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 75])
+    return buf.tobytes() if ok else b""
+
+
+def dibujar(bgr: np.ndarray, r, puntos, vis_min: float, prof: np.ndarray | None = None,
+            cajas=None) -> bytes:
+    """JPEG del cuadro con esqueleto, estado, miniatura de profundidad y, si hay
+    conteo, cajas + etiquetas con la cabeza difuminada (`cajas` = (dets, personas))."""
     import cv2
     img = bgr.copy()
+    if cajas is not None:
+        from vision.aforo import dibujar_cajas
+        dibujar_cajas(img, *cajas)
     h, w = img.shape[:2]
     if r is not None:
         lm, vis = r
@@ -73,5 +84,4 @@ def dibujar(bgr: np.ndarray, r, puntos, vis_min: float, prof: np.ndarray | None 
         mini = cv2.resize(prof, (w // 4, h // 4), interpolation=cv2.INTER_NEAREST)
         mini = cv2.applyColorMap(cv2.convertScaleAbs(mini, alpha=255 / 4000), cv2.COLORMAP_TURBO)
         img[h - mini.shape[0]:, w - mini.shape[1]:] = mini
-    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 75])
-    return buf.tobytes() if ok else b""
+    return jpeg(img)

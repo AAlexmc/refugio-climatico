@@ -28,10 +28,11 @@ TIPOS: dict[str, str] = {
     "viento": "m/s",
     # --- visión (ordenador 1) ---
     "aforo": "personas",       # int: personas dentro ahora (RealSense + detector con etiquetas)
-    "personas": "",            # list[{"id": int, "x": m, "z": m, "etiqueta": str}] SIN imagen (gemelo 3D)
+    "personas": "",            # list[{"id": int|None, "x": m|None, "y": m|None, "etiqueta": str, "estado": "de_pie"|"sentado"|"suelo"}]
+                               # marco refugio (x lateral, y fondo desde la cámara, z arriba), SIN imagen
     "pose": "m",               # dict {"puntos": [[x,y,z]*33], "cadera_z": m, "visible": bool}
     "caida": "",               # bool: alguien en el suelo
-    "desmayo": "",             # dict {"activo": bool, "segundos_inmovil": s, "zona": str}
+    "desmayo": "",             # dict {"activo": bool, "segundos_inmovil": s, "zona": str, "persona"?: id}
     # --- actuadores (estado real, lo publica quien los mueve) ---
     "claraboya": "",           # 0..1 apertura (0 cerrada, 1 abierta)
     "ac": "",                  # bool: climatización encendida

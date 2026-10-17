@@ -27,7 +27,7 @@ REGISTRO: dict[str, str] = {
     "esp32": "captar.serial_bridge:FuenteSerie",   # ESP32-S3 de la maqueta por USB (ordenador 1)
     "realsense": "vision.pose:FuentePose",         # pose 3D D435i -> caída/desmayo (ordenador 1)
     "webcam": "vision.pose:FuentePose",            # pose 2D webcam
-    "pose_sim": "sim.pose_sim:FuentePoseSim",      # pose sintética (de pie / caída)
+    "pose_sim": "vision.sim_vision:FuenteVisionSim",  # visión simulada: personas con etiquetas + pose + caída/desmayo (ordenador 1)
     "aforo_sim": "sim.aforo_sim:FuenteAforoSim",   # llegadas de gente simuladas
     "yolo": "vision.aforo:FuenteAforo",            # conteo real con cámara (ordenador 1)
 }

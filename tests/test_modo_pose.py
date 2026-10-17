@@ -9,7 +9,7 @@ from vision.pose import Cuadro, FuentePose
 from control.reglas import MotorReglas
 from nucleo.bus import Bus
 from nucleo.evento import Evento
-from sim.pose_sim import FuentePoseSim
+from vision.pose_sim import FuentePoseSim
 
 
 class Reloj:
