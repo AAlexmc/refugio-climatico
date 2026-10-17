@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OASI — Métricas</title>
+<style>
+  .viz-root, :root {
+    color-scheme: light;
+    --surface-0: #f3f4f1; --surface-1: #fcfcfb; --border: #dcdcd6;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #77766f;
+    --grid: #e6e5df;
+    --s-blue: #2a78d6; --s-orange: #eb6834; --s-aqua: #1baf7a; --s-violet: #6250d6;
+    --crit: #c52f2f; --ok: #157f3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-0: #0f1110; --surface-1: #1a1a19; --border: #33332f;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+      --grid: #2a2a27;
+      --s-blue: #3987e5; --s-orange: #d95926; --s-aqua: #199e70; --s-violet: #9085e9;
+      --crit: #e66767; --ok: #4cc27a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-0: #0f1110; --surface-1: #1a1a19; --border: #33332f;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+    --grid: #2a2a27;
+    --s-blue: #3987e5; --s-orange: #d95926; --s-aqua: #199e70; --s-violet: #9085e9;
+    --crit: #e66767; --ok: #4cc27a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--surface-0); color: var(--text-primary); }
+  header { display: flex; gap: 16px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; }
+  header nav a { color: var(--s-blue); margin-right: 12px; }
+  #modo { color: var(--text-secondary); font-size: 13px; }
+  main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+  .tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); margin-bottom: 16px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .tile small { color: var(--text-secondary); display: block; }
+  .tile b { display: block; font-size: 28px; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .tile span { color: var(--text-muted); font-size: 12px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 12px 4px; position: relative; }
+  .card h2 { font-size: 15px; margin: 0 0 2px; }
+  .card p.sub { margin: 0 0 6px; color: var(--text-secondary); font-size: 12px; }
+  .leyenda { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .leyenda i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  svg { width: 100%; height: 220px; display: block; overflow: visible; }
+  svg text { fill: var(--text-muted); font-size: 11px; }
+  svg .lab { fill: var(--text-secondary); font-size: 11px; font-weight: 600; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+         border-radius: 8px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none; white-space: nowrap; }
+  .tip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+  .vacio { color: var(--text-muted); font-size: 13px; padding: 70px 0; text-align: center; }
+  details { margin-top: 16px; } table { border-collapse: collapse; font-size: 12px; width: 100%; }
+  td, th { border-bottom: 1px solid var(--border); padding: 4px 6px; text-align: right; } th:first-child, td:first-child { text-align: left; }
+  .tablas { overflow-x: auto; }
+  @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } .tile b { font-size: 24px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>OASI · Métricas</h1>
+  <nav><a href="/">Panel</a><a href="/gemelo.html">Gemelo 3D</a><a href="/configurador.html">Configurador</a><a href="/camara.html">Cámara</a></nav>
+  <span id="modo">conectando…</span>
+</header>
+<main>
+  <section class="tiles" id="tiles"></section>
+  <section class="grid">
+    <div class="card" id="c_temp"><h2>Temperatura: calle vs dentro del refugio</h2><p class="sub">°C</p></div>
+    <div class="card" id="c_energia"><h2>Energía: placas solares vs consumo</h2><p class="sub">W</p></div>
+    <div class="card" id="c_bateria"><h2>Batería del refugio</h2><p class="sub">% de carga</p></div>
+    <div class="card" id="c_aforo"><h2>Personas dentro</h2><p class="sub">conteo de la cámara (sin imágenes)</p></div>
+  </section>
+  <details><summary>Ver datos en tabla</summary><div class="tablas" id="tablas"></div></details>
+</main>
+<script>
+// Pestaña Métricas. Dos fuentes, misma vista:
+//  1. GET /api/metricas (escenario de 5 días de ola de calor, Ordenador 2):
+//     {series:{t:[s], temp_calle, temp_oasi, solar, consumo?, bateria, aforo?}, resumen:{...}}
+//  2. Si no existe: EN VIVO desde el WebSocket (lo que está pasando ahora en el refugio).
+// Nunca se inventan datos: sin datos, la gráfica lo dice.
+const VENTANA_S = 30 * 60;          // en vivo: últimos 30 min reales
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const GRAF = {
+  c_temp:    { series: [["temp_ext", "Calle", "--s-orange"], ["temp", "Dentro", "--s-blue"]], fmt: v => v.toFixed(1) + " °C" },
+  c_energia: { series: [["solar", "Solar", "--s-aqua"], ["potencia", "Consumo", "--s-violet"]], fmt: v => Math.round(v) + " W", cero: true },
+  c_bateria: { series: [["bateria", "Batería", "--s-blue"]], fmt: v => v.toFixed(0) + " %", min: 0, max: 100 },
+  c_aforo:   { series: [["aforo", "Personas", "--s-blue"]], fmt: v => Math.round(v) + "", cero: true, escalon: true },
+};
+const datos = {};                    // tipo -> [[t_ms, v]]
+let modo = "vivo", resumen = null, avisos = 0, pico = 0;
+
+function anadir(tipo, t, v) {
+  if (typeof v !== "number" || !isFinite(v)) return;
+  const a = (datos[tipo] ||= []);
+  a.push([t, v]);
+  if (modo === "vivo") { const lim = t - VENTANA_S * 1000; while (a.length && a[0][0] < lim) a.shift(); }
+}
+
+// ---------- gráfica de líneas SVG con cruceta + tooltip ----------
+function dibujar(id) {
+  const g = GRAF[id], card = document.getElementById(id);
+  let svg = card.querySelector("svg");
+  const series = g.series.map(([k, nom, col]) => ({ k, nom, col: css(col), p: datos[k] || [] })).filter(s => s.p.length);
+  card.querySelector(".vacio")?.remove(); card.querySelector(".leyenda")?.remove();
+  if (!series.length) { svg?.remove(); card.insertAdjacentHTML("beforeend", '<div class="vacio">sin datos todavía</div>'); return; }
+  if (series.length > 1) card.querySelector("p.sub").insertAdjacentHTML("afterend",
+    '<div class="leyenda">' + series.map(s => `<span><i style="background:${s.col}"></i>${s.nom}</span>`).join("") + "</div>");
+  if (!svg) { card.insertAdjacentHTML("beforeend", '<svg role="img"></svg><div class="tip"></div>'); svg = card.querySelector("svg"); }
+  const W = svg.clientWidth || 360, H = 220, m = { l: 44, r: 64, t: 10, b: 24 };
+  const ts = series.flatMap(s => s.p.map(p => p[0])), vs = series.flatMap(s => s.p.map(p => p[1]));
+  const t0 = Math.min(...ts), t1 = Math.max(...ts, t0 + 1);
+  let y0 = g.min ?? Math.min(...vs), y1 = g.max ?? Math.max(...vs);
+  if (g.cero) y0 = Math.min(0, y0);
+  if (y1 - y0 < 1e-6) { y1 += 1; y0 -= g.cero ? 0 : 1; }
+  if (g.escalon) y1 = Math.max(y1, y0 + 4);   // conteos: ticks enteros distintos
+  const pad = (y1 - y0) * 0.08; if (g.min === undefined && !g.cero) y0 -= pad; if (g.max === undefined) y1 += pad;
+  const X = t => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r), Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+  let h = "";
+  if (g.escalon) y1 = y0 + Math.ceil((y1 - y0) / 4) * 4;
+  for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4, y = Y(v);
+    h += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="${css("--grid")}" stroke-width="1"/>`;
+    h += `<text x="${m.l - 6}" y="${y + 4}" text-anchor="end">${g.fmt(v).replace(/ .*/, "")}</text>`; }
+  for (let i = 0; i <= 3; i++) { const t = t0 + (t1 - t0) * i / 3;
+    h += `<text x="${X(t)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === 3 ? "end" : "middle"}">${etiquetaT(t)}</text>`; }
+  for (const s of series) {
+    let d = "";
+    s.p.forEach(([t, v], i) => { const x = X(t), y = Y(v);
+      d += i === 0 ? `M${x},${y}` : g.escalon ? `H${x}V${y}` : `L${x},${y}`; });
+    h += `<path d="${d}" fill="none" stroke="${s.col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const [tl, vl] = s.p[s.p.length - 1];
+    h += `<circle cx="${X(tl)}" cy="${Y(vl)}" r="4" fill="${s.col}" stroke="${css("--surface-1")}" stroke-width="2"/>`;
+    h += `<text class="lab" x="${X(tl) + 8}" y="${Y(vl) + 4}">${g.fmt(vl)}</text>`;
+  }
+  h += `<line class="cruz" y1="${m.t}" y2="${H - m.b}" stroke="${css("--text-muted")}" stroke-width="1" visibility="hidden"/>`;
+  h += `<rect x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/>`;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("aria-label", card.querySelector("h2").textContent);
+  svg.innerHTML = h;
+  const tip = card.querySelector(".tip"), cruz = svg.querySelector(".cruz");
+  svg.onpointermove = e => {
+    const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width;
+    const t = t0 + (x - m.l) / (W - m.l - m.r) * (t1 - t0);
+    const filas = series.map(s => { let best = s.p[0];
+      for (const p of s.p) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p; return [s, best]; });
+    const xt = X(filas[0][1][0]);
+    cruz.setAttribute("x1", xt); cruz.setAttribute("x2", xt); cruz.setAttribute("visibility", "visible");
+    tip.innerHTML = `<div>${etiquetaT(filas[0][1][0], true)}</div>` +
+      filas.map(([s, p]) => `<div><i style="background:${s.col}"></i>${s.nom}: <b>${g.fmt(p[1])}</b></div>`).join("");
+    tip.style.display = "block";
+    const px = (xt / W) * r.width + 14;
+    tip.style.left = Math.min(px, r.width - tip.offsetWidth) + "px"; tip.style.top = "56px";
+  };
+  svg.onpointerleave = () => { tip.style.display = "none"; cruz.setAttribute("visibility", "hidden"); };
+}
+
+function etiquetaT(t, largo) {
+  if (modo === "escenario") { const s = t / 1000, d = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600);
+    return `día ${d + 1} ${String(hh).padStart(2, "0")}h`; }
+  return new Date(t).toLocaleTimeString("es-ES", largo ? {} : { hour: "2-digit", minute: "2-digit" });
+}
+
+// ---------- tarjetas ----------
+const ult = k => (datos[k] || []).at(-1)?.[1];
+function tiles() {
+  const te = ult("temp_ext"), ti = ult("temp");
+  const maxDelta = Math.max(-Infinity, ...(datos.temp || []).map(([t, v]) => {
+    const e = (datos.temp_ext || []).find(p => p[0] >= t)?.[1]; return e === undefined ? -Infinity : e - v; }));
+  const T = [];
+  if (resumen) {
+    const R = { grados_reducidos_pico: ["°C menos en el pico", " °C"], horas_riesgo_evitadas: ["Horas de riesgo evitadas", " h"],
+      kwh_solares: ["Energía solar", " kWh"], pct_autoconsumo: ["Autoconsumo solar", " %"], autonomia_h: ["Autonomía batería", " h"],
+      coste_eur_dia: ["Coste por día", " €"], co2_kg_evitado: ["CO₂ evitado", " kg"] };
+    for (const [k, [nom, u]] of Object.entries(R)) if (typeof resumen[k] === "number")
+      T.push([nom, (Math.round(resumen[k] * 10) / 10).toLocaleString("es-ES") + u, "escenario ola de calor 5 días"]);
+  } else {
+    T.push(["Más fresco que la calle", te !== undefined && ti !== undefined ? (te - ti).toFixed(1) + " °C" : "—", "ahora"]);
+    T.push(["Máx. diferencia", isFinite(maxDelta) ? maxDelta.toFixed(1) + " °C" : "—", "últimos 30 min"]);
+    T.push(["Placas solares", ult("solar") !== undefined ? Math.round(ult("solar")) + " W" : "—", "generando ahora"]);
+    T.push(["Batería", ult("bateria") !== undefined ? Math.round(ult("bateria")) + " %" : "—", "carga"]);
+    T.push(["Pico de aforo", pico ? String(pico) : "—", "personas, desde que abriste"]);
+    T.push(["Avisos al 061", String(avisos), "desmayos detectados"]);
+  }
+  document.getElementById("tiles").innerHTML = T.map(([n, v, s]) => `<div class="tile"><small>${n}</small><b>${v}</b><span>${s}</span></div>`).join("");
+}
+
+function tablas() {
+  const filas = Object.keys(GRAF).map(id => GRAF[id].series.map(([k, nom]) => {
+    const p = datos[k] || []; if (!p.length) return "";
+    const vs = p.map(x => x[1]);
+    return `<tr><td>${nom}</td><td>${GRAF[id].fmt(Math.min(...vs))}</td><td>${GRAF[id].fmt(Math.max(...vs))}</td><td>${GRAF[id].fmt(vs.at(-1))}</td><td>${p.length}</td></tr>`;
+  }).join("")).join("");
+  document.getElementById("tablas").innerHTML = `<table><tr><th>Serie</th><th>Mín</th><th>Máx</th><th>Último</th><th>Muestras</th></tr>${filas}</table>`;
+}
+
+let pendiente = false;
+function repintar() { if (pendiente) return; pendiente = true;
+  requestAnimationFrame(() => { pendiente = false; Object.keys(GRAF).forEach(dibujar); tiles(); tablas(); }); }
+
+// ---------- fuentes ----------
+async function escenario() {
+  try {
+    const r = await fetch("/api/metricas"); if (!r.ok) return false;
+    const j = await r.json(), s = j.series || {}; if (!Array.isArray(s.t)) return false;
+    modo = "escenario"; resumen = j.resumen || null;
+    const MAP = { temp_calle: "temp_ext", temp_oasi: "temp", solar: "solar", consumo: "potencia", bateria: "bateria", aforo: "aforo" };
+    for (const [k, tipo] of Object.entries(MAP)) if (Array.isArray(s[k])) s[k].forEach((v, i) => anadir(tipo, s.t[i] * 1000, v));
+    document.getElementById("modo").textContent = "escenario: ola de calor 5 días (simulador)";
+    return true;
+  } catch { return false; }
+}
+
+function vivo() {
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => document.getElementById("modo").textContent = "en vivo · últimos 30 min";
+  ws.onclose = () => { document.getElementById("modo").textContent = "reconectando…"; setTimeout(vivo, 1000); };
+  ws.onmessage = m => { const ev = JSON.parse(m.data), t = ev.t * 1000;
+    if (ev.tipo === "alerta" && ev.valor.codigo === "desmayo" && ev.valor.nivel === "critico") avisos++;
+    if (ev.tipo === "aforo") pico = Math.max(pico, ev.valor);
+    if (["temp", "temp_ext", "solar", "potencia", "bateria", "aforo"].includes(ev.tipo)) { anadir(ev.tipo, t, ev.valor); repintar(); }
+    else if (ev.tipo === "alerta") repintar(); };
+}
+
+addEventListener("resize", repintar);
+escenario().then(ok => { if (!ok) vivo(); repintar(); });
+</script>
+</body>
+</html>
