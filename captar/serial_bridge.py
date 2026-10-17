@@ -1,8 +1,10 @@
 """Puente ESP32-S3 <-> bus por USB CDC (JSON por línea, ver docs/contratos.md).
 
 Lectura bloqueante en un hilo (`asyncio.to_thread`); los eventos vuelven al
-loop con `bus.publicar_desde_hilo`. Los comandos `rele`/`buzzer` del bus se
-escriben al puerto bajo un lock. Sin puerto: `estado_fuente` desconectada
+loop con `bus.publicar_desde_hilo`. Los comandos `rele`/`buzzer`/`claraboya`/
+`ac`/`nebulizador`/`ventilador` del bus se escriben al puerto bajo un lock.
+Una alerta `desmayo` crítica enciende el LED rojo + pitido de la maqueta
+(`{"alerta": true}`); su `info` lo apaga. Sin puerto: `estado_fuente` desconectada
 (una vez por caída) y reintento cada 2 s; nunca se inventan datos.
 """
 from __future__ import annotations
@@ -51,7 +53,12 @@ CAMPOS: dict[str, Callable[[Any], bool]] = {
     "luz": _luz,
     "presencia": _bool,
     "rele": _bool,
+    "claraboya": _luz,          # 0..1, mismo rango que la luz
+    "ac": _bool,
+    "nebulizador": _bool,
+    "ventilador": _bool,
 }
+SALIDAS_BOOL = ("rele", "ac", "nebulizador", "ventilador")
 
 
 def _abrir_defecto(puerto: str, baudios: int):
@@ -107,8 +114,10 @@ class FuenteSerie:
     # ---- bus -> ESP32 -------------------------------------------------
     @staticmethod
     def _payload(destino: str, valor: Any) -> dict | None:
-        if destino == "rele":
-            return {"rele": valor} if isinstance(valor, bool) else None
+        if destino in SALIDAS_BOOL:
+            return {destino: valor} if isinstance(valor, bool) else None
+        if destino == "claraboya":
+            return {"claraboya": round(float(valor), 2)} if _luz(valor) else None
         if destino == "buzzer":
             if valor is True:
                 return {"buzzer": BUZZER_MS_DEFECTO}
@@ -117,15 +126,24 @@ class FuenteSerie:
         return None
 
     def _comando(self, ev: Evento) -> None:
+        if ev.tipo == "alerta" and isinstance(ev.valor, dict) and ev.valor.get("codigo") == "desmayo":
+            on = ev.valor.get("nivel") == "critico"
+            self._escribir({"alerta": on})
+            if on:
+                self._escribir({"buzzer": BUZZER_MS_DEFECTO})
+            return
         if ev.tipo != "comando" or not isinstance(ev.valor, dict):
             return
         destino = ev.valor.get("destino")
-        if destino not in ("rele", "buzzer"):
+        if destino not in (*SALIDAS_BOOL, "claraboya", "buzzer"):
             return
         payload = self._payload(destino, ev.valor.get("valor"))
         if payload is None:
             log.debug("comando inválido ignorado: %r", ev.valor)
             return
+        self._escribir(payload)
+
+    def _escribir(self, payload: dict) -> None:
         linea = (json.dumps(payload) + "\n").encode()
         with self._lock:
             if self._ser is None:

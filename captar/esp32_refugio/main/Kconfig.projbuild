@@ -1,4 +1,4 @@
-menu "Hospital sensor"
+menu "Refugio sensor"
 
     comment "Evitar: GPIO 0/3/45/46 (strapping), 19/20 (USB), 26-37 (flash/PSRAM octal)"
 
@@ -101,6 +101,49 @@ menu "Hospital sensor"
             depends on HS_BUZZER_ENABLE && HS_BUZZER_PASIVO
             default 2000
             range 100 10000
+    endmenu
+
+    menu "Claraboya (servo)"
+        config HS_SERVO_ENABLE
+            bool "Habilitar servo de la claraboya"
+            default y
+
+        config HS_SERVO_GPIO
+            int "GPIO de senal del servo (SG90: 5 V de alimentacion, senal 3,3 V vale)"
+            depends on HS_SERVO_ENABLE
+            default 15
+            range 1 48
+
+        config HS_SERVO_GRADOS_CERRADA
+            int "Angulo con la claraboya cerrada"
+            depends on HS_SERVO_ENABLE
+            default 0
+            range 0 180
+
+        config HS_SERVO_GRADOS_ABIERTA
+            int "Angulo con la claraboya abierta"
+            depends on HS_SERVO_ENABLE
+            default 90
+            range 0 180
+    endmenu
+
+    menu "Salidas del refugio (LED o rele)"
+        config HS_AC_GPIO
+            int "GPIO aire acondicionado (LED azul / rele). 0 = sin usar"
+            default 16
+            range 0 48
+        config HS_NEBU_GPIO
+            int "GPIO nebulizador (rele del humidificador USB). 0 = sin usar"
+            default 17
+            range 0 48
+        config HS_VENT_GPIO
+            int "GPIO ventilador. 0 = sin usar"
+            default 18
+            range 0 48
+        config HS_ALERTA_GPIO
+            int "GPIO LED rojo de alerta (parpadea con desmayo). 0 = sin usar"
+            default 8
+            range 0 48
     endmenu
 
 endmenu

@@ -1,11 +1,14 @@
 /*
- * Hospital en casa: sensores de la habitacion -> JSON por linea por USB.
+ * OASI refugio climatico (maqueta): sensores -> JSON por linea por USB.
  *
  * ESP32 -> PC (cada CONFIG_HS_PERIODO_MS):
- *   {"temp":27.4,"humedad":48.0,"luz":0.62,"presencia":true,"rele":false}
+ *   {"temp":27.4,"humedad":48.0,"luz":0.62,"presencia":true,"rele":false,
+ *    "claraboya":0.00,"ac":true,"nebulizador":false,"ventilador":false}
  * Un sensor deshabilitado o con lectura fallida omite su campo; el fallo se
  * avisa con una linea aparte: {"error":"dht: checksum"}
  * PC -> ESP32:  {"rele":true}   {"buzzer":500}   (ms de pitido)
+ *               {"claraboya":0.6} (0..1 -> servo)   {"ac":true}   {"nebulizador":true}
+ *               {"ventilador":true}   {"alerta":true} (LED rojo parpadea + pitido)
  */
 #include <ctype.h>
 #include <stdbool.h>
@@ -22,9 +25,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#if CONFIG_HS_BUZZER_ENABLE && CONFIG_HS_BUZZER_PASIVO
 #include "driver/ledc.h"
-#endif
 #if CONFIG_HS_DHT_ENABLE
 #include "dht.h"
 #endif
@@ -40,7 +41,7 @@
 #define CONFIG_HS_DHT_22 0
 #endif
 
-static const char *TAG = "hospital";
+static const char *TAG = "refugio";
 
 #define BUZZER_MAX_MS 5000
 #define DHT_PERIODO_US 2100000LL /* DHT22 exige >= 2 s entre lecturas */
@@ -53,7 +54,7 @@ static volatile bool s_rele;
 
 static void enviar_linea(const char *s)
 {
-    char buf[200];
+    char buf[300];
     int n = snprintf(buf, sizeof(buf), "%s\n", s);
     if (n <= 0 || n >= (int)sizeof(buf)) {
         return;
@@ -143,6 +144,101 @@ static void buzzer_init(void)
 }
 #endif
 
+/* ---------- refugio: claraboya (servo) + salidas on/off ---------- */
+
+#if CONFIG_HS_SERVO_ENABLE
+static volatile float s_claraboya;
+
+/* SG90: 50 Hz, pulso 0,5 ms (0 grados) .. 2,5 ms (180 grados); LEDC 14 bits. */
+static void claraboya_aplicar(float f)
+{
+    if (f < 0) {
+        f = 0;
+    } else if (f > 1) {
+        f = 1;
+    }
+    s_claraboya = f;
+    float grados = CONFIG_HS_SERVO_GRADOS_CERRADA +
+                   f * (CONFIG_HS_SERVO_GRADOS_ABIERTA - CONFIG_HS_SERVO_GRADOS_CERRADA);
+    float us = 500.0f + grados * (2000.0f / 180.0f);
+    uint32_t duty = (uint32_t)(us / 20000.0f * 16383.0f);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+}
+
+static void servo_init(void)
+{
+    ledc_timer_config_t t = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .duty_resolution = LEDC_TIMER_14_BIT,
+        .timer_num = LEDC_TIMER_1,
+        .freq_hz = 50,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    ledc_channel_config_t ch = {
+        .gpio_num = CONFIG_HS_SERVO_GPIO,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_1,
+        .timer_sel = LEDC_TIMER_1,
+        .duty = 0,
+        .hpoint = 0,
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&t));
+    ESP_ERROR_CHECK(ledc_channel_config(&ch));
+    claraboya_aplicar(0);
+}
+#endif
+
+typedef struct {
+    const char *clave;
+    int gpio;            /* 0 = sin usar */
+    volatile bool on;
+    bool informar;       /* sale en la linea de estado */
+} salida_t;
+
+static salida_t s_salidas[] = {
+    {"ac", CONFIG_HS_AC_GPIO, false, true},
+    {"nebulizador", CONFIG_HS_NEBU_GPIO, false, true},
+    {"ventilador", CONFIG_HS_VENT_GPIO, false, true},
+    {"alerta", CONFIG_HS_ALERTA_GPIO, false, false},
+};
+#define N_SALIDAS (sizeof(s_salidas) / sizeof(s_salidas[0]))
+#define ALERTA (&s_salidas[3])
+
+static void salida_aplicar(salida_t *s, bool on)
+{
+    s->on = on;
+    if (s->gpio > 0) {
+        gpio_set_level(s->gpio, on ? 1 : 0);
+    }
+}
+
+static void salidas_init(void)
+{
+    for (size_t i = 0; i < N_SALIDAS; i++) {
+        if (s_salidas[i].gpio > 0) {
+            gpio_config_t cfg = {.pin_bit_mask = 1ULL << s_salidas[i].gpio, .mode = GPIO_MODE_OUTPUT};
+            ESP_ERROR_CHECK(gpio_config(&cfg));
+        }
+        salida_aplicar(&s_salidas[i], false);
+    }
+}
+
+/* LED de alerta: parpadeo a 2 Hz mientras "alerta" este activa. */
+static void tarea_alerta(void *arg)
+{
+    bool fase = false;
+    for (;;) {
+        if (ALERTA->on && ALERTA->gpio > 0) {
+            fase = !fase;
+            gpio_set_level(ALERTA->gpio, fase);
+        } else if (ALERTA->gpio > 0) {
+            gpio_set_level(ALERTA->gpio, 0);
+        }
+        vTaskDelay(pdMS_TO_TICKS(250));
+    }
+}
+
 /* ---------- comandos entrantes ---------- */
 
 /* Valor tras "clave": en la linea, o NULL. Solo claves planas del protocolo. */
@@ -187,6 +283,23 @@ static void procesar_linea(const char *linea)
         cambio = true;
     }
 #endif
+#if CONFIG_HS_SERVO_ENABLE
+    const char *cl = valor_de(linea, "claraboya");
+    if (cl && (isdigit((unsigned char)*cl) || *cl == '.')) {
+        claraboya_aplicar(strtof(cl, NULL));
+        cambio = true;
+    }
+#endif
+    for (size_t i = 0; i < N_SALIDAS; i++) {
+        const char *sv = valor_de(linea, s_salidas[i].clave);
+        if (sv && strncmp(sv, "true", 4) == 0) {
+            salida_aplicar(&s_salidas[i], true);
+            cambio = true;
+        } else if (sv && strncmp(sv, "false", 5) == 0) {
+            salida_aplicar(&s_salidas[i], false);
+            cambio = true;
+        }
+    }
     if (cambio && s_tarea_sensores) {
         xTaskNotifyGive(s_tarea_sensores); /* responde ya con una linea de estado */
     }
@@ -262,7 +375,7 @@ static void tarea_sensores(void *arg)
     int64_t dht_t_intento = -DHT_PERIODO_US;
 #endif
     for (;;) {
-        char buf[160];
+        char buf[256];
         size_t n = 0;
         n += snprintf(buf + n, sizeof(buf) - n, "{");
         const char *sep = "";
@@ -306,6 +419,17 @@ static void tarea_sensores(void *arg)
         n += snprintf(buf + n, sizeof(buf) - n, "%s\"rele\":%s", sep, s_rele ? "true" : "false");
         sep = ",";
 #endif
+#if CONFIG_HS_SERVO_ENABLE
+        n += snprintf(buf + n, sizeof(buf) - n, "%s\"claraboya\":%.2f", sep, s_claraboya);
+        sep = ",";
+#endif
+        for (size_t i = 0; i < N_SALIDAS; i++) {
+            if (s_salidas[i].informar && s_salidas[i].gpio > 0) {
+                n += snprintf(buf + n, sizeof(buf) - n, "%s\"%s\":%s", sep, s_salidas[i].clave,
+                              s_salidas[i].on ? "true" : "false");
+                sep = ",";
+            }
+        }
         snprintf(buf + n, sizeof(buf) - n, "}");
         enviar_linea(buf);
 
@@ -344,6 +468,11 @@ void app_main(void)
     buzzer_init();
 #endif
 
+#if CONFIG_HS_SERVO_ENABLE
+    servo_init();
+#endif
+    salidas_init();
+    xTaskCreate(tarea_alerta, "alerta", 2048, NULL, 3, NULL);
     xTaskCreate(tarea_sensores, "sensores", 4096, NULL, 5, &s_tarea_sensores);
     xTaskCreate(tarea_comandos, "comandos", 4096, NULL, 4, NULL);
     ESP_LOGI(TAG, "listo");
