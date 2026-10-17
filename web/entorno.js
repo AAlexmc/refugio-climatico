@@ -2,6 +2,11 @@
 // árboles, farolas, bancos) o 'terraza' (azotea de edificio con barandilla y la ciudad abajo).
 // construirEntorno(scene, lugar) -> { dispose() }. El refugio queda en el origen (frente en z = 0).
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// Árbol realista: «Island Tree 02» de Poly Haven (CC0). Si no carga, árbol procedural.
+let _arbol = null;
+const arbolGLB = () => (_arbol ??= new Promise(res => new GLTFLoader().load('modelos/arbol.glb', g => res(g.scene), undefined, () => res(null))));
 
 function tex(pintar, rep, size = 128) {
   const c = document.createElement('canvas'); c.width = c.height = size; pintar(c.getContext('2d'), size);
@@ -22,6 +27,18 @@ function caja(g, w, h, d, color, x, y, z, extra = {}) {
   m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m;
 }
 function arbol(g, x, z, alto = 4) {
+  const raiz = g, proc = new THREE.Group(); raiz.add(proc);
+  arbolGLB().then(base => {
+    if (!base) return;
+    const m = base.clone(true);
+    const caja = new THREE.Box3().setFromObject(m), sz = caja.getSize(new THREE.Vector3());
+    m.scale.setScalar((alto * 1.35) / sz.y);
+    const c2 = new THREE.Box3().setFromObject(m), ctr = c2.getCenter(new THREE.Vector3());
+    m.position.set(x - ctr.x, -0.1 - c2.min.y, z - ctr.z); m.rotation.y = (x * 7 + z * 3) % 6.28;
+    m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    proc.visible = false; raiz.add(m);
+  });
+  g = proc;
   const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, alto * 0.55, 10), new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.9 }));
   tr.position.set(x, alto * 0.275, z); tr.castShadow = true; g.add(tr);
   const mh = new THREE.MeshStandardMaterial({ color: 0x3f8f4a, roughness: 0.9 });
@@ -73,7 +90,7 @@ export function construirEntorno(scene, lugar = 'bus') {
     const suelo = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: tex(baldosa('#d8cdb6', '#bfb39a', 64), 24), roughness: 0.95 }));
     suelo.rotation.x = -Math.PI / 2; suelo.position.y = -0.11; suelo.receiveShadow = true; g.add(suelo);
     const cesped = new THREE.MeshStandardMaterial({ color: 0x5f9a4a, roughness: 1 });
-    for (const [x, z] of [[-11, -2], [11, -2], [-11, 7], [11, 7]]) {
+    for (const [x, z] of [[-15, -4], [15, -4], [-15, 10], [15, 10]]) {
       const c = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 0.2, 32), cesped); c.position.set(x, -0.02, z); c.receiveShadow = true; g.add(c);
       arbol(g, x, z, 5);
       caja(g, 6.6, 0.35, 0.2, 0xb8ad96, x, 0.06, z + 3.3);
