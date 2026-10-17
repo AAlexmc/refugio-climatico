@@ -81,3 +81,4 @@ del proyecto anterior: ola de calor Barcelona, COP variable, precio luz, métric
 
 ## Estado
 - (actualiza aquí al cerrar cada hito)
+- 2B: `sim/clima.py` reescala en caliente con el evento `modulos` ({kit,n,area_m2,tipo?,cubierta?}; datos de `datos/kits.json`); tipo != cupula = sombra −3 °C sin AC. `/api/metricas` resumen ahora incluye `materiales` (T máx OASI por cubierta + vidrio_simple) y `kits` (kwh_solares_dia, autonomia_h).

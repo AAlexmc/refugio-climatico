@@ -5,7 +5,7 @@ from sim import metricas
 
 SERIES = {"t", "temp_calle", "temp_oasi", "temp_cupula", "solar", "consumo", "bateria", "aforo"}
 RESUMEN = {"grados_reducidos_pico", "horas_riesgo_evitadas", "kwh_solares", "pct_autoconsumo",
-           "autonomia_h", "coste_eur_dia", "co2_kg_evitado"}
+           "autonomia_h", "coste_eur_dia", "co2_kg_evitado", "materiales", "kits"}
 
 
 def test_forma_y_longitudes():
