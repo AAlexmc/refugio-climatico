@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OASI — gemelo 3D</title>
+<style>
+  :root { --bg:#0f1714; --card:#17221dcc; --txt:#e6efe9; --mut:#8aa397; --ok:#3ecf8e; --cr:#ff3b3b; --acc:#5cc8ff; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--txt); font-family:system-ui,sans-serif; }
+  canvas { display:block; width:100%; height:100%; }
+  nav { position:fixed; left:12px; top:66px; z-index:5; font-size:14px; }
+  nav a { color:var(--acc); margin-right:10px; }
+  #hud { position:fixed; right:10px; top:66px; width:190px; background:var(--card); border-radius:10px; padding:10px 12px; z-index:5; font-size:13px; }
+  #hud h2 { margin:0 0 6px; font-size:14px; }
+  #hud div { display:flex; justify-content:space-between; padding:2px 0; } #hud span { color:var(--mut); } #hud b { font-weight:600; }
+  #estado { position:fixed; left:12px; bottom:10px; z-index:5; font-size:13px; padding:4px 10px; border-radius:12px; background:var(--card); }
+  #estado.off { color:#ffb347; }
+  #banner { position:fixed; left:0; right:0; top:0; z-index:9; background:var(--cr); color:#fff; text-align:center; font-weight:700;
+    font-size:26px; padding:14px; display:none; animation:pulso 1s infinite; }
+  @keyframes pulso { 50% { background:#a00; } }
+  @media (max-width:500px) { #hud { width:150px; font-size:12px; } }
+</style>
+</head>
+<body>
+<div id="banner"></div>
+<nav><a href="/">Panel</a><a href="/configurador.html">Configurador</a></nav>
+<div id="hud">
+  <h2>Refugio <span id="h_ref"></span></h2>
+  <div><span>Interior</span><b id="h_temp">—</b></div>
+  <div><span>Exterior</span><b id="h_ext">—</b></div>
+  <div><span>Aforo</span><b id="h_aforo">—</b></div>
+  <div><span>Batería</span><b id="h_bat">—</b></div>
+  <div><span>Solar</span><b id="h_sol">—</b></div>
+  <div><span>Claraboya</span><b id="h_cla">—</b></div>
+  <div><span>AC</span><b id="h_ac">—</b></div>
+  <div><span>Nebulizador</span><b id="h_neb">—</b></div>
+</div>
+<div id="estado" class="off">sin conexión</div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/" } }</script>
+<script type="module" src="./gemelo.js"></script>
+</body>
+</html>

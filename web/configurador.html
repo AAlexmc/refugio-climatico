@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OASI — configurador modular</title>
+<style>
+  :root { --bg:#0f1714; --card:#17221d; --txt:#e6efe9; --mut:#8aa397; --ok:#3ecf8e; --acc:#5cc8ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--txt); min-height:100vh; display:flex; flex-direction:column; }
+  header { padding:10px 14px; border-bottom:1px solid #24342c; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; } header a { color:var(--acc); }
+  #app { flex:1; display:grid; grid-template-columns:1fr 340px; min-height:0; }
+  #vista { position:relative; min-height:320px; } #vista canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  aside { padding:14px; background:var(--card); overflow:auto; }
+  .kits { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  button { background:#24342c; color:var(--txt); border:1px solid #35503f; border-radius:8px; padding:10px 12px; cursor:pointer; font-size:15px; }
+  button.sel { background:var(--ok); color:#06150d; border-color:var(--ok); font-weight:600; }
+  .mod { display:flex; align-items:center; gap:12px; margin-bottom:14px; } .mod b { font-size:28px; min-width:2ch; text-align:center; }
+  .mod button { width:48px; height:48px; font-size:24px; padding:0; }
+  table { width:100%; border-collapse:collapse; margin-bottom:14px; } td { padding:7px 0; border-bottom:1px solid #24342c; }
+  td:last-child { text-align:right; font-weight:600; }
+  #aplicar { width:100%; background:var(--acc); color:#04141c; font-weight:700; border:0; }
+  #msg { margin-top:8px; font-size:13px; color:var(--mut); min-height:1.2em; } small { color:var(--mut); }
+  @media (max-width:700px) { #app { grid-template-columns:1fr; grid-template-rows:55vw auto; } #vista { min-height:240px; } }
+</style>
+</head>
+<body>
+<header><h1>OASI · configurador</h1><a href="/">Panel</a><a href="/gemelo.html">Gemelo</a></header>
+<div id="app">
+  <div id="vista"></div>
+  <aside>
+    <div class="kits" id="kits"></div>
+    <div class="mod"><button id="menos" aria-label="Quitar módulo">−</button><b id="n">2</b><button id="mas" aria-label="Añadir módulo">+</button><small>módulos (1–8)</small></div>
+    <table id="cifras"></table>
+    <button id="aplicar">Aplicar al refugio</button>
+    <div id="msg"></div>
+    <small id="origen"></small>
+  </aside>
+</div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/" } }</script>
+<script type="module" src="./configurador.js"></script>
+</body>
+</html>
