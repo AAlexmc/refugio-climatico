@@ -82,6 +82,12 @@ function hud() {
 
 const BOOL = new Set(['ac', 'nebulizador', 'ventilador']);
 function evento(ev) {
+  if (ev.tipo === 'guion') {
+    const g = ev.valor || {}, el = $('guion');
+    el.style.display = g.paso > 0 ? 'block' : 'none';
+    if (g.paso > 0) el.textContent = `${g.paso}/${g.total} · ${g.titulo} — ${g.texto}`;
+    return;
+  }
   if (ev.refugio && ev.refugio !== REFUGIO) return;
   const v = ev.valor;
   switch (ev.tipo) {

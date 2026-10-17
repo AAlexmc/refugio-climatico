@@ -17,9 +17,12 @@
   .al.aviso { border-left:4px solid var(--av); } .al.critico { border-left:4px solid var(--cr); background:#3a1717; }
   #ctrl { padding:0 16px 16px; display:flex; gap:8px; flex-wrap:wrap; }
   button { background:#24342c; color:var(--txt); border:1px solid #35503f; border-radius:8px; padding:8px 12px; cursor:pointer; }
+  #guion { display:none; padding:10px 16px; background:#1d3a52; border-bottom:2px solid var(--acc); }
+  #guion b { font-size:20px; } #guion small { color:var(--mut); margin-left:8px; } #guion p { margin:4px 0 0; }
 </style>
 </head>
 <body>
+<div id="guion"><b id="g_t"></b><small id="g_n"></small><p id="g_x"></p></div>
 <header>
   <h1>OASI · refugio climático R1</h1>
   <nav><a href="/">Panel</a><a href="/gemelo.html">Gemelo 3D</a><a href="/metricas.html">Métricas</a><a href="/configurador.html">Configurador</a><a href="/mapa.html">Mapa</a><a href="/caida.html">Entrenar caída</a><a href="/camara.html">Cámara</a>
@@ -28,6 +31,9 @@
 </header>
 <main id="tiles"></main>
 <div id="ctrl">
+  <button id="demo_ini">▶ Demo guiada</button>
+  <button id="demo_par">■ Parar</button>
+  <button id="atendido">Atendido</button>
   <button data-ev='{"tipo":"aforo","valor":25,"fuente":"panel"}'>Simular lleno (25)</button>
   <button data-ev='{"tipo":"desmayo","valor":{"activo":true},"fuente":"panel"}'>Simular desmayo</button>
   <button data-ev='{"tipo":"desmayo","valor":{"activo":false},"fuente":"panel"}'>Resolver desmayo</button>
@@ -58,10 +64,19 @@ function conectar(){ const ws = new WebSocket(`ws://${location.host}/ws`);
   ws.onopen = () => document.getElementById("ws").textContent = "en vivo";
   ws.onclose = () => { document.getElementById("ws").textContent = "reconectando…"; setTimeout(conectar, 1000); };
   ws.onmessage = m => { const ev = JSON.parse(m.data);
-    if (ev.tipo === "alerta"){ alertas.set(ev.valor.codigo, ev.valor); pintarAlertas(); }
+    if (ev.tipo === "guion"){ const g = ev.valor, b = document.getElementById("guion");
+      b.style.display = g.paso > 0 ? "block" : "none";
+      document.getElementById("g_t").textContent = g.titulo;
+      document.getElementById("g_n").textContent = `paso ${g.paso}/${g.total}`;
+      document.getElementById("g_x").textContent = g.texto; }
+    else if (ev.tipo === "alerta"){ alertas.set(ev.valor.codigo, ev.valor); pintarAlertas(); }
     else if (!OCULTOS.has(ev.tipo)) tile(ev); }; }
 document.querySelectorAll("button[data-ev]").forEach(b => b.onclick = () =>
   fetch("/api/evento", {method:"POST", headers:{"Content-Type":"application/json"}, body:b.dataset.ev}));
+const post = (u, o) => fetch(u, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(o)});
+document.getElementById("demo_ini").onclick = () => post("/api/demo", {accion:"iniciar"});
+document.getElementById("demo_par").onclick = () => post("/api/demo", {accion:"parar"});
+document.getElementById("atendido").onclick = () => post("/api/comando", {destino:"atendido", valor:"desmayo"});
 conectar();
 </script>
 </body>

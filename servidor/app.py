@@ -7,6 +7,8 @@ Rutas:
     GET  /               panel (web/index.html)
     GET  /api/estado     último valor por (refugio, tipo)
     POST /api/evento     inyectar un evento (ESP32 por WiFi, pruebas, demo)
+    POST /api/demo       {"accion": "iniciar"|"parar", "escala"?} demo guiada
+    GET  /api/refugios   lista de refugios (solo R1, real)
     POST /api/comando    {"destino": "rele", "valor": true} -> actuadores
     GET/POST /api/pose/modo         {"modo": "camara" | "sim"} quién alimenta al refugio
     GET  /api/caida/vivo            cadera_z, ángulo, estado del detector (cámara)
@@ -41,6 +43,7 @@ class _Estaticos(StaticFiles):
         r.headers["Cache-Control"] = "no-cache"
         return r
 
+from control.demo import Director
 from vision import calibracion
 from vision.caidas import Umbrales
 from vision.modo_pose import Conmutador
@@ -72,6 +75,7 @@ def crear_app(nombres: list[tuple[str, dict]] | None = None, *, bus: Bus | None 
     async def vida(app: FastAPI):
         bus.enlazar_loop(asyncio.get_running_loop())
         app.state.reglas = _motor_reglas(bus)
+        app.state.demo = Director(bus)
         objs = {n: fuentes.crear(n, **kw) for n, kw in nombres}
         app.state.fuentes = objs
         cam = next((objs[n] for n in ("realsense", "webcam") if n in objs), None)
@@ -89,6 +93,7 @@ def crear_app(nombres: list[tuple[str, dict]] | None = None, *, bus: Bus | None 
         try:
             yield
         finally:
+            app.state.demo.parar(avisar=False)
             for t in tareas:
                 t.cancel()
             for t in tareas:
@@ -132,6 +137,32 @@ def crear_app(nombres: list[tuple[str, dict]] | None = None, *, bus: Bus | None 
         bus.publicar(Evento("comando", {"destino": d["destino"], "valor": d["valor"]},
                             "panel", d.get("refugio", "R1")))
         return {"ok": True}
+
+    @app.post("/api/demo")
+    async def demo(d: dict = Body(...)):
+        accion = d.get("accion")
+        if accion not in ("iniciar", "parar"):
+            raise HTTPException(422, "accion: iniciar | parar")
+        dem = app.state.demo
+        if accion == "iniciar":
+            try:
+                escala = float(d.get("escala", 1.0))
+                if not 0 < escala <= 100:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise HTTPException(422, "escala: número > 0")
+            dem.iniciar(escala)
+        else:
+            dem.parar()
+        return {"ok": True, "activa": dem.activa}
+
+    @app.get("/api/refugios")
+    async def refugios():
+        def v(tipo):
+            ev = bus.ultimo.get(("R1", tipo))
+            return None if ev is None else ev.valor
+        return [{"id": "R1", "nombre": "Refugio R1", "lat": 41.5632, "lon": 2.0089,
+                 "temp": v("temp"), "temp_ext": v("temp_ext"), "aforo": v("aforo"), "aforo_max": 20}]
 
     # -- modo cámara / simulación -------------------------------------
     @app.get("/api/pose/modo")
