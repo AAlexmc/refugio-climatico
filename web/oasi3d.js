@@ -96,7 +96,8 @@ const MODELOS = {
   jardin: 'modelos/furnimesh/jardin_vertical.glb',
   parada: 'modelos/furnimesh/parada.glb',
   persona: 'modelos/persona.glb',
-  hiedra: 'modelos/hiedra.glb',     // «Ivy And Vines» (_JooL_, CC-BY 4.0)   // «An Elderly Man» (BELAZ, CC-BY 4.0), rig Mixamo; ver modelos/CREDITOS.md
+  hiedra: 'modelos/hiedra.glb',
+  fuente: 'modelos/fuente.glb',     // «Drinking Fountain» (MooKorea, CC-BY 4.0)     // «Ivy And Vines» (_JooL_, CC-BY 4.0)   // «An Elderly Man» (BELAZ, CC-BY 4.0), rig Mixamo; ver modelos/CREDITOS.md
 };
 const _glb = {};
 function cargarGLB(clave) {
@@ -468,6 +469,12 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
     const caño = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.18, 8), mAcero); caño.position.set(0, 1.07, -0.12);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 20), mAcero); base.position.y = 0.02;
     f.add(pie, pila, agua, caño, base); g.add(f);
+    cargarGLB('fuente').then(b => {   // modelo realista: sustituye a la procedural (el chorro se mantiene)
+      if (!b || !vivo) return;
+      const m = colocarModelo(b, { alto: 1.0 }); m.position.set(x, 0, z);
+      m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      for (const o of [pie, pila, agua, caño, base]) o.visible = false; g.add(m);
+    });
     const ch = crearChorro(60, { color: 0x8fd0ff, size: 0.05, opacity: 0.9, vida: 0.8, grav: 9.8, emitir(p, v, i) {
       p[i] = x; p[i + 1] = 1.16; p[i + 2] = z - 0.12;
       v[i] = (Math.random() - 0.5) * 0.05; v[i + 1] = 1.1 + Math.random() * 0.15; v[i + 2] = 0.55 + Math.random() * 0.08; } });
