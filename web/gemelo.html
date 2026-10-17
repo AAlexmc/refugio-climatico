@@ -48,6 +48,10 @@
     <option value="policarbonato_opal_ir">Policarbonato opal</option></select></label>
   <label id="l_arb"><input type="checkbox" id="c_arbol" checked> Árbol solar al lado</label>
   <small id="c_info"></small>
+  <b style="margin-top:4px">Sol y sombra · <span id="s_hora"></span></b>
+  <div style="display:flex;gap:6px;align-items:center"><button id="s_play" title="Animar el día">▶</button>
+    <input id="s_rango" type="range" min="5.5" max="21.5" step="0.25" style="flex:1"></div>
+  <small id="s_info"></small>
   <button id="c_aplicar">Aplicar al refugio real</button>
 </div>
 <div id="afluencia"></div>
