@@ -49,7 +49,7 @@ bus.rotation.x = -Math.PI / 2; bus.position.set(0, -0.09, 4.6); scene.add(bus);
 // estado acumulado: se reaplica si el refugio se reconstruye (evento `modulos`)
 const E = { claraboya: 0, ac: false, nebulizador: false, ventilador: false, temp: null, solar: 0, bateria: 0, noche: false };
 let temp_ext = null, aforo = null, personas = [], desmayo = { activo: false, persona: null };
-let cfg = { kit: 'parada_bus', n: 2 }, refugio = null;
+let cfg = { kit: 'parada_bus', n: 2, tipo: 'cupula', cubierta: 'vidrio_control_solar', arbol: true }, refugio = null;
 
 function construir() {
   refugio?.dispose();
@@ -105,7 +105,7 @@ function evento(ev) {
         if (on) $('banner').textContent = 'Alerta 061 · ' + (v.mensaje || 'desmayo');
       } break;
     case 'modulos':
-      if (v && v.kit && v.n && (v.kit !== cfg.kit || v.n !== cfg.n)) { cfg = { kit: v.kit, n: v.n }; construir(); } break;
+      if (v && v.kit && v.n && (v.kit !== cfg.kit || v.n !== cfg.n || (v.tipo || 'cupula') !== cfg.tipo)) { cfg = { ...cfg, ...v, tipo: v.tipo || 'cupula' }; construir(); pintarCfg(); } break;
   }
   hud();
 }
@@ -119,6 +119,34 @@ function conectar() {
   ws.onmessage = m => { try { evento(JSON.parse(m.data)); } catch (e) { console.warn('evento ignorado', e); } };
 }
 conectar(); hud();
+
+// --- configuración dentro del gemelo (mismo modelo que /configurador.html) ---
+const AFORO_MOD = 10, KWP_MOD = 0.8, KWH_MOD = 2.5;
+function pintarCfg() {
+  $('c_tipo').value = cfg.tipo; $('c_kit').value = cfg.kit; $('c_cub').value = cfg.cubierta; $('c_arbol').checked = cfg.arbol;
+  $('c_n').textContent = cfg.n;
+  const cup = cfg.tipo === 'cupula';
+  for (const id of ['l_kit', 'l_n', 'l_cub', 'l_arb']) $(id).style.display = cup ? '' : 'none';
+  const n = cup ? cfg.n : 1;
+  $('c_info').textContent = `Aforo ${n * AFORO_MOD} · FV ${(n * KWP_MOD + (cup && cfg.arbol || cfg.tipo === 'arbol_solar' ? 1.5 : 0)).toFixed(1)} kWp · batería ${(n * KWH_MOD).toFixed(1)} kWh`;
+}
+function cambiar(p) { cfg = { ...cfg, ...p }; cfg.n = Math.max(1, Math.min(8, cfg.n)); construir(); pintarCfg(); }
+$('c_tipo').onchange = e => cambiar({ tipo: e.target.value });
+$('c_kit').onchange = e => cambiar({ kit: e.target.value });
+$('c_cub').onchange = e => cambiar({ cubierta: e.target.value });
+$('c_arbol').onchange = e => cambiar({ arbol: e.target.checked });
+$('c_menos').onclick = () => cambiar({ n: cfg.n - 1 });
+$('c_mas').onclick = () => cambiar({ n: cfg.n + 1 });
+$('c_aplicar').onclick = async () => {
+  const n = cfg.tipo === 'cupula' ? cfg.n : 1;
+  try {
+    const r = await fetch('/api/evento', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'modulos', fuente: 'panel', valor: { kit: cfg.kit, n, area_m2: n * 16, tipo: cfg.tipo } }) });
+    $('c_aplicar').textContent = r.ok ? 'Aplicado ✓' : 'Error al aplicar';
+  } catch { $('c_aplicar').textContent = 'Sin conexión'; }
+  setTimeout(() => $('c_aplicar').textContent = 'Aplicar al refugio real', 2000);
+};
+pintarCfg();
 
 function ajustar() {
   renderer.setSize(innerWidth, innerHeight);
