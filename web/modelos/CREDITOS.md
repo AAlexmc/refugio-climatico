@@ -24,3 +24,4 @@ para bajar de 8 MB. Los originales pesaban 29,2 / 21,2 / 11,3 MB.
 | Fichero | Modelo | Autor | Licencia | Fuente |
 |---|---|---|---|---|
 | `persona.glb` | An Elderly Man (avatar Ready Player Me) | [BELAZ](https://sketchfab.com/asset_for_games) | **CC Attribution 4.0 — citar en la diapositiva final** | https://sketchfab.com/3d-models/an-elderly-man-60cca77799e249e39ef53e3112baa4a7 |
+| `hiedra.glb` | Ivy And Vines | [_JooL_](https://sketchfab.com/_JooL_) | **CC Attribution 4.0 — citar** | https://sketchfab.com/3d-models/ivy-and-vines-e0cc4bb1a3e045c79c91f6902a775099 (texturas a 1024 px webp, simplificado 50 %) |
