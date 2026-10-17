@@ -9,7 +9,11 @@ Reglas base, en orden de prioridad:
 3. Ventilación natural primero: si fuera está ≥ 1 °C más fresco que dentro Y fuera < 27 °C
    -> claraboya abierta, AC apagado (con 35 °C fuera abrir solo mete calor).
 4. Índice de calor interior > 27 °C con claraboya cerrada -> AC encendido (histéresis 1 °C).
-5. Aforo alto (≥ 70 %) y calor -> nebulizador SOLO si HR < 60 % (con humedad alta el
+5. AFLUENCIA: con ≥ AFORO_ACTIVAR (4) personas detectadas se refuerza el sistema térmico:
+   ventilador on, AC on con consigna más baja (IC > 25 °C, aunque se pueda ventilar: la
+   claraboya sigue abierta si fuera está fresco) y nebulizador si el aire es seco.
+   Aviso "afluencia" en el panel/gemelo. Por debajo de 4, vuelven las reglas normales.
+5b. Nebulizador SOLO si HR < 60 % (con humedad alta el
    evaporativo sube el índice de calor: empeora el confort).
 6. Aforo > máximo -> aviso "lleno" (la app ciudadana redirige al refugio más cercano).
 """
@@ -26,7 +30,8 @@ IC_AC_ON = 27.0
 HISTERESIS = 1.0
 DELTA_VENT = 1.0
 AFORO_MAX = 20
-AFORO_NEBU = 0.7
+AFORO_ACTIVAR = 4         # personas: a partir de aquí se refuerza el sistema térmico
+IC_AC_AFLUENCIA = 25.0
 HR_MAX_NEBU = 60.0
 T_MIN_NEBU = 26.0
 
@@ -86,17 +91,24 @@ class MotorReglas:
         ventilar = (not lluvia) and te is not None and float(te) <= t - DELTA_VENT and float(te) < IC_AC_ON
         self._comando(r, "claraboya", 1.0 if ventilar else 0.0)
 
+        afluencia = aforo >= AFORO_ACTIVAR
         ac_prev = bool(self.cmd.get((r, "ac"), False))
-        if ventilar:
+        umbral = IC_AC_AFLUENCIA if afluencia else IC_AC_ON
+        if ventilar and not afluencia:
             ac = False
         elif ac_prev:
-            ac = ic > IC_AC_ON - HISTERESIS
+            ac = ic > umbral - HISTERESIS
         else:
-            ac = ic > IC_AC_ON
+            ac = ic > umbral
         self._comando(r, "ac", ac)
-
-        lleno_70 = aforo >= AFORO_NEBU * self.aforo_max
-        self._comando(r, "nebulizador", bool(lleno_70 and t >= T_MIN_NEBU and hr < HR_MAX_NEBU))
+        self._comando(r, "ventilador", afluencia)
+        self._comando(r, "nebulizador", bool(afluencia and t >= T_MIN_NEBU and hr < HR_MAX_NEBU))
+        if afluencia:
+            self._alerta(r, "afluencia", "aviso",
+                         f"{aforo} personas: refuerzo térmico activo (ventilador + AC"
+                         + (" + nebulizador)" if hr < HR_MAX_NEBU and t >= T_MIN_NEBU else ")"))
+        else:
+            self._alerta(r, "afluencia", "info", f"{aforo} personas: modo normal")
 
         if aforo > self.aforo_max:
             self._alerta(r, "lleno", "aviso", f"Refugio lleno ({aforo}/{self.aforo_max})")

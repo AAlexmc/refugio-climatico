@@ -16,6 +16,8 @@
   #hud div { display:flex; justify-content:space-between; padding:2px 0; } #hud span { color:var(--mut); } #hud b { font-weight:600; }
   #estado { position:fixed; left:12px; bottom:10px; z-index:5; font-size:13px; padding:4px 10px; border-radius:12px; background:var(--card); }
   #estado.off { color:#ffb347; }
+  #afluencia { position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:8; background:#e9a400; color:#111;
+    font-weight:700; padding:8px 16px; border-radius:10px; display:none; max-width:92vw; text-align:center; }
   #banner { position:fixed; left:0; right:0; top:0; z-index:9; background:var(--cr); color:#fff; text-align:center; font-weight:700;
     font-size:26px; padding:14px; display:none; animation:pulso 1s infinite; }
   @keyframes pulso { 50% { background:#a00; } }
@@ -24,6 +26,7 @@
 </head>
 <body>
 <div id="banner"></div>
+<div id="afluencia"></div>
 <nav><a href="/">Panel</a><a href="/configurador.html">Configurador</a></nav>
 <div id="hud">
   <h2>Refugio <span id="h_ref"></span></h2>
@@ -35,6 +38,7 @@
   <div><span>Claraboya</span><b id="h_cla">—</b></div>
   <div><span>AC</span><b id="h_ac">—</b></div>
   <div><span>Nebulizador</span><b id="h_neb">—</b></div>
+  <div><span>Ventilador</span><b id="h_ven">—</b></div>
 </div>
 <div id="estado" class="off">sin conexión</div>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/" } }</script>
