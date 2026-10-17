@@ -95,7 +95,8 @@ const MODELOS = {
   banco: 'modelos/furnimesh/banco_enredaderas.glb',
   jardin: 'modelos/furnimesh/jardin_vertical.glb',
   parada: 'modelos/furnimesh/parada.glb',
-  persona: 'modelos/persona.glb',   // «An Elderly Man» (BELAZ, CC-BY 4.0), rig Mixamo; ver modelos/CREDITOS.md
+  persona: 'modelos/persona.glb',
+  hiedra: 'modelos/hiedra.glb',     // «Ivy And Vines» (_JooL_, CC-BY 4.0)   // «An Elderly Man» (BELAZ, CC-BY 4.0), rig Mixamo; ver modelos/CREDITOS.md
 };
 const _glb = {};
 function cargarGLB(clave) {
@@ -346,6 +347,35 @@ export function construirRefugio(scene, { kit = 'parada_bus', n = 2, arbol: conA
       mod.position.set(cx, 0, -L + 0.45); g.add(mod);
     }
   });
+  // --- enredaderas en los laterales abiertos de la bóveda (sombra + frescor). Entrada libre en el frente ---
+  if (esCupula) cargarGLB('hiedra').then(base => {
+    if (!base || !vivo) return;
+    for (let c = 0; c < cols; c++) {
+      const L = filasCol[c] * LADO, cx = (c - (cols - 1) / 2) * LADO;
+      for (const sx of (cols === 2 ? [c === 0 ? -1 : 1] : [-1, 1])) {      // en rejilla, solo los lados exteriores
+        // copias del panel de hiedra, cara paralela al lateral, altura = pilares
+        // la celosía (malla pequeña) marca el ancho de cada copia; las hojas desbordan y se solapan
+        const enr = base.clone(true); enr.updateMatrixWorld(true);
+        const cajas = [];
+        enr.traverse(o => { if (o.isMesh) cajas.push(new THREE.Box3().setFromObject(o)); });
+        const celo = cajas.reduce((a, b) => (b.getSize(_v1).x < a.getSize(_v2).x ? b : a));
+        const csz = celo.getSize(new THREE.Vector3()), cctr = celo.getCenter(new THREE.Vector3());
+        const k = (BASE + 0.15) / csz.y, ancho = csz.x * k;
+        const largo = L - 1.2, nCop = Math.max(1, Math.round(largo / ancho));
+        for (let q = 0; q < nCop; q++) {
+          const m = base.clone(true);
+          m.position.set(-cctr.x, -celo.min.y, -cctr.z);          // centro de la celosía en el origen
+          const piv = new THREE.Group(); piv.add(m); piv.scale.setScalar(k);
+          piv.rotation.y = Math.PI / 2 * (q % 2 ? -1 : 1);       // alterna sentido: hojas hacia los dos lados
+          const wrap = new THREE.Group(); wrap.add(piv);
+          wrap.position.set(cx + sx * (R + 0.03), 0, -1.2 - (q + 0.5) * (largo / nCop));
+          wrap.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+          g.add(wrap);
+        }
+      }
+    }
+  });
+
   // --- árbol solar: el árbol del modelo (o tronco procedural) con una copa de placas FV encima ---
   const verArbol = tipo === 'arbol_solar' || (esCupula && conArbol);
   const arbol = new THREE.Group(); arbol.visible = verArbol;
