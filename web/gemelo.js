@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { construirRefugio } from './oasi3d.js';
-import { construirEntorno, LUGAR_POR_KIT } from './entorno.js';
+import { construirEntorno, LUGAR_POR_KIT, posicionSol } from './entorno.js';
 
 const REFUGIO = new URLSearchParams(location.search).get('refugio') || 'R1';
 const $ = id => document.getElementById(id);
@@ -39,20 +39,57 @@ function construir() {
   if (!entorno || entorno.lugar !== cfg.lugar) { entorno?.dispose(); entorno = construirEntorno(scene, cfg.lugar); entorno.lugar = cfg.lugar; }
   refugio = construirRefugio(scene, cfg);
   refugio.set(E); refugio.setPersonas(personas); refugio.setDesmayo(desmayo);
+  if (typeof aplicarSol === 'function') setTimeout(aplicarSol, 600);
   controls.target.copy(refugio.centro);
   const d = Math.max(8, cfg.n * 2.2 + 4);
   camera.position.set(d * 0.9, d * 0.6, d * 0.5 + 2);
 }
 construir();
 
-function dia(radiacion) {
-  const noche = radiacion <= 0;
+// --- sol según la hora del día (Barcelona, julio): mueve la luz y las sombras ---
+let hora = Math.min(21, Math.max(6, new Date().getHours() + new Date().getMinutes() / 60));
+const cielo = new THREE.Color(), cDia = new THREE.Color(0x9ec9e6), cOcaso = new THREE.Color(0xf2b27a), cNoche = new THREE.Color(0x070b16);
+const luzSol = new THREE.Color(), lBlanca = new THREE.Color(0xfff2d8), lNaranja = new THREE.Color(0xff9a4a);
+function aplicarSol() {
+  const s = posicionSol(hora);
+  const e = s.elev, noche = e <= 0;
   E.noche = noche; refugio.set({ noche });
-  const f = noche ? 0 : Math.min(radiacion / 1000, 1);
-  sol.intensity = f * 3; hemi.intensity = noche ? 0.12 : 0.35 + 0.65 * f;
-  scene.background.set(noche ? 0x070b16 : 0x9ec9e6); scene.fog.color.copy(scene.background);
+  const c = refugio.centro;
+  sol.target.position.copy(c); sol.position.copy(c).addScaledVector(s.dir, 30);
+  const f = Math.max(0, Math.sin(e * Math.PI / 180));
+  const ocaso = Math.max(0, 1 - e / 15);                  // < 15°: luz anaranjada y larga
+  luzSol.copy(lBlanca).lerp(lNaranja, noche ? 0 : ocaso);
+  sol.color.copy(luzSol); sol.intensity = noche ? 0 : 0.6 + 2.6 * f;
+  hemi.intensity = noche ? 0.12 : 0.3 + 0.6 * f;
+  cielo.copy(noche ? cNoche : cDia); if (!noche) cielo.lerp(cOcaso, ocaso * 0.7);
+  scene.background.copy(cielo); scene.fog.color.copy(cielo);
+  sombra(s);
 }
-dia(800);
+// % del suelo del refugio a la sombra: rayos desde una rejilla de puntos hacia el sol contra lo opaco
+const rc = new THREE.Raycaster(), _p = new THREE.Vector3();
+function sombra(s) {
+  let txt = '—';
+  if (s.elev > 0) {
+    const L = refugio.limites, opacos = [];
+    refugio.group.traverse(o => { if (o.isMesh && !o.material.transparent && o.visible) opacos.push(o); });
+    let tot = 0, som = 0;
+    for (let i = 0; i < 9; i++) for (let k = 0; k < 7; k++) {
+      _p.set(L.minX + (i + 0.5) * (L.maxX - L.minX) / 9, 0.3, L.minZ + (k + 0.5) * (L.maxZ - L.minZ) / 7);
+      rc.set(_p, s.dir); rc.far = 40; tot++;
+      if (rc.intersectObjects(opacos, false).length) som++;
+    }
+    const pct = Math.round(100 * som / tot);
+    txt = `${pct} % a la sombra · sol directo dentro ≈ ${Math.round(s.irr * (1 - pct / 100))} W/m²`;
+  }
+  const hh = Math.floor(hora), mm = Math.round((hora - hh) * 60);
+  $('s_hora').textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  $('s_info').textContent = s.elev > 0 ? `Sol a ${Math.round(s.elev)}° · ${s.irr} W/m² · ${txt}` : 'Noche: sin sol (batería y luz cálida)';
+}
+let animando = false;
+$('s_rango').value = hora;
+$('s_rango').oninput = e => { hora = Number(e.target.value); animando = false; $('s_play').textContent = '▶'; aplicarSol(); };
+$('s_play').onclick = () => { animando = !animando; $('s_play').textContent = animando ? '❚❚' : '▶'; };
+setTimeout(aplicarSol, 600);   // tras cargar modelos: la sombra también los cuenta
 
 function hud() {
   const f = (v, u, d = 1) => v == null ? '—' : `${(+v).toFixed(d)} ${u}`;
@@ -80,7 +117,7 @@ function evento(ev) {
       refugio.set({ [ev.tipo]: E[ev.tipo] }); break;
     case 'temp_ext': temp_ext = Number(v); break;
     case 'aforo': aforo = v; break;
-    case 'radiacion': dia(Number(v)); break;
+    case 'radiacion': break;   // la luz la manda el reloj del sol (control «Hora del día»)
     case 'personas': personas = Array.isArray(v) ? v : []; refugio.setPersonas(personas); break;
     case 'desmayo': desmayo = { activo: !!v?.activo, persona: v?.persona ?? null }; refugio.setDesmayo(desmayo); break;
     case 'alerta':
@@ -149,5 +186,6 @@ addEventListener('resize', ajustar); ajustar();
 const reloj = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(reloj.getDelta(), 0.1);
+  if (animando) { hora += dt * 0.5; if (hora > 21.5) hora = 5.5; $('s_rango').value = hora; aplicarSol(); }
   refugio.actualizar(dt); controls.update(); renderer.render(scene, camera);
 });

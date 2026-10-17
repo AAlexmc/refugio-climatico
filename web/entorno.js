@@ -132,3 +132,20 @@ export function construirEntorno(scene, lugar = 'bus') {
 }
 
 export const LUGAR_POR_KIT = { parada_bus: 'bus', terraza_comunitaria: 'plaza', terraza_privada: 'terraza' };
+
+// Posición del sol en Barcelona (41,39° N, 2,17° E) para una hora local de verano (CEST) y un día del año.
+// Devuelve elevación y azimut (grados, azimut desde el norte hacia el este), la dirección hacia el sol en el
+// marco three (norte = -z, este = +x) y la irradiancia directa de cielo despejado aproximada (W/m²).
+export function posicionSol(hora, diaAnio = 200) {
+  const rad = Math.PI / 180, lat = 41.39 * rad;
+  const decl = 23.45 * rad * Math.sin(2 * Math.PI * (284 + diaAnio) / 365);
+  const horaSolar = hora - 2 + 2.17 / 15;                 // CEST = UTC+2; longitud 2,17° E
+  const H = (horaSolar - 12) * 15 * rad;
+  const sinE = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(H);
+  const elev = Math.asin(Math.max(-1, Math.min(1, sinE)));
+  let az = Math.acos(Math.max(-1, Math.min(1, (Math.sin(decl) - Math.sin(elev) * Math.sin(lat)) / (Math.cos(elev) * Math.cos(lat)))));
+  if (H > 0) az = 2 * Math.PI - az;                        // tarde: hacia el oeste
+  const dir = new THREE.Vector3(Math.cos(elev) * Math.sin(az), Math.sin(elev), -Math.cos(elev) * Math.cos(az));
+  const irr = elev > 0 ? Math.round(1000 * Math.pow(Math.sin(elev), 1.15)) : 0;
+  return { elev: elev / rad, az: az / rad, dir, irr };
+}
